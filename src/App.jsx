@@ -7,7 +7,6 @@ import {
   User, Users, Star, FileText, Apple, Pencil, Library, Mic, Settings,
   Play, BookMarked, Rocket, Medal, Phone
 } from 'lucide-react';
-
 /* ════════════════════════════════════════════════════════════════
    A.P.L.U.S Level Testing v4 — Recruitment-Optimized
    • 5 模組綜合診斷 (跳過 Speaking,自主作答)
@@ -405,7 +404,7 @@ function getEnglishVoices() {
    主元件
    ═══════════════════════════════════════════════════════════════ */
 export default function APLUSLevelTesting() {
-  const [screen, setScreen] = useState('intro');
+  const [screen, setScreen] = useState('grade');
   const [moduleIdx, setModuleIdx] = useState(0);
   const [qIdx, setQIdx] = useState(0);
   const [answers, setAnswers] = useState([]);
@@ -418,6 +417,7 @@ export default function APLUSLevelTesting() {
   const [showModuleIntro, setShowModuleIntro] = useState(false);
   const [studentName, setStudentName] = useState('');
   const [studentGrade, setStudentGrade] = useState('');
+const [gradeGroup, setGradeGroup] = useState('');
   const [availableVoices, setAvailableVoices] = useState([]);
   const [selectedVoiceName, setSelectedVoiceName] = useState('');
 
@@ -533,6 +533,46 @@ export default function APLUSLevelTesting() {
     <div className="min-h-screen bg-stone-50 font-sans text-slate-800 flex items-center justify-center p-0 sm:p-6">
       <div className={`w-full bg-white sm:rounded-3xl shadow-xl overflow-hidden flex flex-col transition-all duration-500
         ${screen === 'dashboard' ? 'max-w-6xl' : 'max-w-3xl h-screen sm:h-[88vh] sm:min-h-[680px]'}`}>
+        {screen === 'grade' && (
+                <div className="flex flex-col items-center justify-center h-full p-6 sm:p-10">
+                            <div className="text-center mb-8">
+                                          <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                          <GraduationCap className="w-8 h-8 text-indigo-600" />
+                                          </div>div>
+                                          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">
+                                                          歡迎參加 A.P.L.U.S 程度測驗
+                                          </h1>h1>
+                                          <p className="text-slate-500 text-sm sm:text-base">
+                                                          請選擇學生目前的年級，我們將為您安排最適合的測驗題目
+                                          </p>p>
+                            </div>div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-lg">
+                              {[
+                  { key: 'low', label: '低年級', sub: '幼稚園 ～ 小二', emoji: '🌱', color: 'from-green-400 to-emerald-500', levels: ['A', 'P'] },
+                  { key: 'mid', label: '中年級', sub: '小三 ～ 小四', emoji: '🌿', color: 'from-blue-400 to-sky-500', levels: ['L', 'U'] },
+                  { key: 'high', label: '高年級', sub: '小五 ～ 小六以上', emoji: '🌳', color: 'from-violet-400 to-purple-500', levels: ['S', 'J6'] },
+                                ].map(({ key, label, sub, emoji, color, levels }) => (
+                                                  <button
+                                                                      key={key}
+                                                                      onClick={() => {
+                                                                                            setGradeGroup(key);
+                                                                                            setScreen('intro');
+                                                                      }}
+                                                                      className={`group relative flex flex-col items-center justify-center p-6 rounded-2xl bg-gradient-to-br ${color} text-white shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200 cursor-pointer`}
+                                                                    >
+                                                                    <span className="text-3xl mb-2">{emoji}</span>span>
+                                                                    <span className="text-xl font-bold">{label}</span>span>
+                                                                    <span className="text-xs opacity-80 mt-1">{sub}</span>span>
+                                                                    <div className="flex gap-1 mt-2">
+                                                                      {levels.map(l => (
+                                                                                            <span key={l} className="text-xs bg-white/20 rounded px-1.5 py-0.5 font-mono">{l}</span>span>
+                                                                                          ))}
+                                                                    </div>div>
+                                                  </button>button>
+                                                ))}
+                            </div>div>
+                </div>div>
+              )}</div>
         {screen === 'intro' && (
           <IntroScreen
             studentName={studentName} setStudentName={setStudentName}
