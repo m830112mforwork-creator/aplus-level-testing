@@ -870,7 +870,7 @@ const [gradeGroup, setGradeGroup] = useState('');
                 <MapPin className="w-8 h-8 text-indigo-600" />
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">
-                歡迎參加 A.P.L.U.S 程度測驗
+                Welcome to A PLUS I.E.E. System: English Assessment
               </h1>
               <p className="text-slate-500 text-sm sm:text-base">
                 請選擇測驗校區
@@ -897,7 +897,7 @@ const [gradeGroup, setGradeGroup] = useState('');
                 <GraduationCap className="w-8 h-8 text-indigo-600" />
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">
-                歡迎參加 A.P.L.U.S 程度測驗
+                Welcome to A PLUS I.E.E. System: English Assessment
               </h1>
               <p className="text-slate-500 text-sm sm:text-base">
                 {campus && `${campus}・`}請選擇學生目前的年級，我們將為您安排最適合的測驗題目
