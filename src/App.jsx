@@ -5,8 +5,10 @@ import {
   Type, BrainCircuit, BookText, Timer, Flame, Sparkles, CheckCircle2,
   XCircle, GraduationCap, Heart, Award, ArrowRight, ChevronRight,
   User, Users, Star, FileText, Apple, Pencil, Library, Mic, Settings,
-  Play, BookMarked, Rocket, Medal, Phone, ChevronLeft, Info, Printer, Lock
+  Play, BookMarked, Rocket, Medal, Phone, ChevronLeft, Info, Printer, Lock, MapPin, CloudOff, RefreshCcw
 } from 'lucide-react';
+import { db } from './firebase';
+import { ref, push, get } from 'firebase/database';
 /* ════════════════════════════════════════════════════════════════
    A.P.L.U.S Level Testing v4 — Recruitment-Optimized
    • 5 模組綜合診斷 (跳過 Speaking,自主作答)
@@ -380,6 +382,8 @@ const GRADE_OPTIONS = {
   high: ['小五', '小六', '國一', '國二以上'],
 };
 
+const CAMPUS_OPTIONS = ['總校', '龍華校', '左新校'];
+
 function buildModules(gradeGroup) {
   const plan = GRADE_PLANS[gradeGroup];
   if (!plan) return MODULES;
@@ -422,7 +426,7 @@ function estimateLevel(levelStats) {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   ⭐ 測驗紀錄保存 (localStorage) + CSV 匯出
+   ⭐ 測驗紀錄保存 — 本機 localStorage (離線備援) + Firebase 雲端同步 (跨裝置共享)
    ═══════════════════════════════════════════════════════════════ */
 const STORAGE_KEY = 'aplus_level_test_records_v1';
 const MAX_RECORDS = 300;
@@ -441,13 +445,29 @@ function saveRecord(record) {
   } catch { return false; }
 }
 
-function exportRecordsCSV() {
-  const list = loadRecords();
-  if (list.length === 0) { alert('目前沒有已保存的測驗紀錄。'); return; }
-  const head = ['測驗時間','姓名','年級','分流','判定級數','CEFR','總題數','答對','正確率(%)','用時(秒)',
+/* 寫入雲端 (所有校區裝置共用同一份紀錄)，失敗時不影響本機保存與作答流程 */
+function pushRecordToCloud(record) {
+  return push(ref(db, 'records'), record)
+    .then(() => true)
+    .catch(err => { console.error('雲端同步失敗', err); return false; });
+}
+
+/* 讀取雲端所有紀錄，依測驗時間新到舊排序 */
+async function loadRecordsFromCloud() {
+  const snapshot = await get(ref(db, 'records'));
+  if (!snapshot.exists()) return [];
+  const val = snapshot.val();
+  return Object.entries(val)
+    .map(([id, r]) => ({ id, ...r }))
+    .reverse();
+}
+
+function exportRecordsCSV(list) {
+  if (!list || list.length === 0) { alert('目前沒有已保存的測驗紀錄。'); return; }
+  const head = ['測驗時間','校區','姓名','年級','分流','判定級數','CEFR','總題數','答對','正確率(%)','用時(秒)',
                 ...Object.keys(SKILL_TAGS).map(k => k + '正確率(%)')];
   const rows = list.map(r => [
-    r.ts, r.studentName, r.studentGrade, GRADE_PLANS[r.gradeGroup]?.label || r.gradeGroup,
+    r.ts, r.campus || '', r.studentName, r.studentGrade, GRADE_PLANS[r.gradeGroup]?.label || r.gradeGroup,
     r.level, LEVEL_INFO[r.level]?.cefr || '', r.total, r.correct, r.accuracy, r.seconds,
     ...Object.keys(SKILL_TAGS).map(k => r.skillPct?.[k] ?? '')
   ]);
@@ -506,8 +526,20 @@ function RecordsPasswordGate({ onBack, onUnlock }) {
 
 function RecordsOverview({ onBack }) {
   const [unlocked, setUnlocked] = useState(false);
-  const records = unlocked ? loadRecords() : [];
+  const [status, setStatus] = useState('idle'); // idle | loading | ready | error
+  const [records, setRecords] = useState([]);
   const formatSeconds = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+
+  const fetchRecords = () => {
+    setStatus('loading');
+    loadRecordsFromCloud()
+      .then(list => { setRecords(list); setStatus('ready'); })
+      .catch(err => { console.error('讀取雲端紀錄失敗', err); setStatus('error'); });
+  };
+
+  useEffect(() => {
+    if (unlocked) fetchRecords();
+  }, [unlocked]);
 
   if (!unlocked) {
     return <RecordsPasswordGate onBack={onBack} onUnlock={() => setUnlocked(true)} />;
@@ -520,10 +552,18 @@ function RecordsOverview({ onBack }) {
           <h2 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Users className="w-5 h-5 text-emerald-600" />歷史測驗紀錄總覽
           </h2>
-          <p className="text-slate-500 text-sm mt-1">共 {records.length} 筆紀錄（保存在此裝置瀏覽器中）</p>
+          <p className="text-slate-500 text-sm mt-1">
+            {status === 'ready' && `共 ${records.length} 筆紀錄（來自雲端，所有校區裝置共用）`}
+            {status === 'loading' && '讀取中...'}
+            {status === 'error' && '讀取雲端紀錄失敗，請檢查網路連線'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={exportRecordsCSV}
+          <button onClick={fetchRecords} title="重新整理"
+            className="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-slate-700 rounded-lg font-bold text-sm flex items-center gap-1.5">
+            <RefreshCcw className="w-4 h-4" />
+          </button>
+          <button onClick={() => exportRecordsCSV(records)}
             className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm flex items-center gap-1.5">
             <FileText className="w-4 h-4" />匯出 CSV
           </button>
@@ -534,7 +574,16 @@ function RecordsOverview({ onBack }) {
         </div>
       </div>
 
-      {records.length === 0 ? (
+      {status === 'error' ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 gap-2">
+          <CloudOff className="w-10 h-10" />
+          <p>讀取雲端紀錄失敗，請檢查網路連線後點右上角重新整理。</p>
+        </div>
+      ) : status !== 'ready' ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 gap-2">
+          <p>讀取中...</p>
+        </div>
+      ) : records.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 gap-2">
           <Info className="w-10 h-10" />
           <p>目前沒有已保存的測驗紀錄。</p>
@@ -545,6 +594,7 @@ function RecordsOverview({ onBack }) {
             <thead className="bg-stone-50 text-slate-500 text-xs uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-3">時間</th>
+                <th className="px-4 py-3">校區</th>
                 <th className="px-4 py-3">姓名</th>
                 <th className="px-4 py-3">年級</th>
                 <th className="px-4 py-3">分流</th>
@@ -554,9 +604,10 @@ function RecordsOverview({ onBack }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
-              {records.map((r, i) => (
-                <tr key={i} className="hover:bg-stone-50">
+              {records.map((r) => (
+                <tr key={r.id} className="hover:bg-stone-50">
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{r.ts}</td>
+                  <td className="px-4 py-3 text-slate-600">{r.campus || '—'}</td>
                   <td className="px-4 py-3 font-bold text-slate-800">{r.studentName || '—'}</td>
                   <td className="px-4 py-3 text-slate-600">{r.studentGrade || '—'}</td>
                   <td className="px-4 py-3 text-slate-600">{GRADE_PLANS[r.gradeGroup]?.label || r.gradeGroup || '—'}</td>
@@ -617,8 +668,10 @@ function getEnglishVoices() {
    主元件
    ═══════════════════════════════════════════════════════════════ */
 export default function APLUSLevelTesting() {
-  const [screen, setScreen] = useState('grade');
+  const [screen, setScreen] = useState('campus');
+  const [campus, setCampus] = useState('');
   const [savedOk, setSavedOk] = useState(null);
+  const [cloudSyncOk, setCloudSyncOk] = useState(null);
   const [audioBlocked, setAudioBlocked] = useState(false);
   const speechPrimed = useRef(false);
   const [moduleIdx, setModuleIdx] = useState(0);
@@ -768,7 +821,7 @@ const [gradeGroup, setGradeGroup] = useState('');
 
   const finishTest = (finalAnswers) => {
     window.speechSynthesis?.cancel();
-    /* ⭐ 保存本次測驗紀錄至 localStorage */
+    /* ⭐ 保存本次測驗紀錄：本機 localStorage (離線備援) + Firebase 雲端 (跨校區共享) */
     const lvlStats = computeLevelStats(finalAnswers);
     const correct = finalAnswers.filter(a => a.isCorrect).length;
     const skillPct = {};
@@ -776,14 +829,16 @@ const [gradeGroup, setGradeGroup] = useState('');
       const sub = finalAnswers.filter(a => a.skill === k);
       skillPct[k] = sub.length ? Math.round(sub.filter(a => a.isCorrect).length / sub.length * 100) : '';
     });
-    setSavedOk(saveRecord({
+    const record = {
       ts: new Date().toLocaleString('zh-TW', { hour12: false }),
-      studentName: studentName.trim(), studentGrade: studentGrade.trim(), gradeGroup,
+      campus, studentName: studentName.trim(), studentGrade: studentGrade.trim(), gradeGroup,
       level: estimateLevel(lvlStats),
       total: finalAnswers.length, correct,
       accuracy: finalAnswers.length ? Math.round(correct / finalAnswers.length * 100) : 0,
       seconds: timeElapsed, skillPct
-    }));
+    };
+    setSavedOk(saveRecord(record));
+    pushRecordToCloud(record).then(setCloudSyncOk);
     setScreen('dashboard');
   };
 
@@ -795,6 +850,33 @@ const [gradeGroup, setGradeGroup] = useState('');
     <div className="min-h-screen bg-stone-50 font-sans text-slate-800 flex items-center justify-center p-0 sm:p-6 print:p-0 print:bg-white print:min-h-0">
       <div className={`w-full bg-white sm:rounded-3xl shadow-xl overflow-hidden flex flex-col transition-all duration-500 print:rounded-none print:shadow-none print:overflow-visible print:max-w-full
         ${screen === 'dashboard' || screen === 'records' ? 'max-w-6xl' : 'max-w-3xl h-screen sm:h-[88vh] sm:min-h-[680px]'}`}>
+        {screen === 'campus' && (
+          <div className="flex flex-col items-center justify-center h-full p-6 sm:p-10">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <MapPin className="w-8 h-8 text-indigo-600" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">
+                歡迎參加 A.P.L.U.S 程度測驗
+              </h1>
+              <p className="text-slate-500 text-sm sm:text-base">
+                請選擇測驗校區
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-lg">
+              {CAMPUS_OPTIONS.map(c => (
+                <button
+                  key={c}
+                  onClick={() => { setCampus(c); setScreen('grade'); }}
+                  className="group relative flex flex-col items-center justify-center p-6 rounded-2xl bg-gradient-to-br from-indigo-400 to-blue-500 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200 cursor-pointer"
+                >
+                  <MapPin className="w-6 h-6 mb-2" />
+                  <span className="text-lg font-bold">{c}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {screen === 'grade' && (
           <div className="flex flex-col items-center justify-center h-full p-6 sm:p-10">
             <div className="text-center mb-8">
@@ -805,7 +887,7 @@ const [gradeGroup, setGradeGroup] = useState('');
                 歡迎參加 A.P.L.U.S 程度測驗
               </h1>
               <p className="text-slate-500 text-sm sm:text-base">
-                請選擇學生目前的年級，我們將為您安排最適合的測驗題目
+                {campus && `${campus}・`}請選擇學生目前的年級，我們將為您安排最適合的測驗題目
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-lg">
@@ -830,8 +912,11 @@ const [gradeGroup, setGradeGroup] = useState('');
                 </button>
               ))}
             </div>
+            <button onClick={() => setScreen('campus')} className="mt-6 text-[11px] text-slate-400 hover:text-slate-600 underline underline-offset-2">
+              ← 重新選擇校區
+            </button>
             <button onClick={() => setScreen('records')}
-              className="mt-8 text-xs text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1">
+              className="mt-3 text-xs text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1">
               <Users className="w-3.5 h-3.5" />查看歷史測驗紀錄總覽
             </button>
           </div>
@@ -865,10 +950,10 @@ const [gradeGroup, setGradeGroup] = useState('');
         )}
         {screen === 'dashboard' && (
           <Dashboard
-            modules={activeModules} savedOk={savedOk}
+            modules={activeModules} savedOk={savedOk} cloudSyncOk={cloudSyncOk}
             answers={answers} timeElapsed={timeElapsed} formatTime={formatTime}
-            studentName={studentName} studentGrade={studentGrade}
-            onRestart={() => { setSavedOk(null); setScreen('grade'); }}
+            studentName={studentName} studentGrade={studentGrade} campus={campus}
+            onRestart={() => { setSavedOk(null); setCloudSyncOk(null); setScreen('campus'); }}
           />
         )}
       </div>
@@ -1216,7 +1301,7 @@ function QuestionContent({ question, isSpeaking, onReplayAudio, audioBlocked }) 
 /* ════════════════════════════════════════════════════════════════
    Dashboard — 含學校優勢 + 招生 CTA
    ═══════════════════════════════════════════════════════════════ */
-function Dashboard({ modules = MODULES, savedOk, answers, timeElapsed, formatTime, studentName, studentGrade, onRestart }) {
+function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElapsed, formatTime, studentName, studentGrade, campus, onRestart }) {
   const [view, setView] = useState('student');
 
   // 計算每模組真實表現
@@ -1265,9 +1350,11 @@ function Dashboard({ modules = MODULES, savedOk, answers, timeElapsed, formatTim
           <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-emerald-600" />Level Testing 結果報告
           </h2>
-          {studentName && <p className="text-[11px] text-slate-500 mt-0.5">學生:{studentName} {studentGrade && `· ${studentGrade}`}</p>}
+          {studentName && <p className="text-[11px] text-slate-500 mt-0.5">學生:{studentName} {studentGrade && `· ${studentGrade}`} {campus && `· ${campus}`}</p>}
           {savedOk === true && <p className="text-[10px] text-emerald-600 font-bold mt-0.5">✓ 已保存至本機紀錄</p>}
           {savedOk === false && <p className="text-[10px] text-amber-600 font-bold mt-0.5">⚠ 本機儲存失敗（可能為無痕模式），請立即匯出</p>}
+          {cloudSyncOk === true && <p className="text-[10px] text-emerald-600 font-bold mt-0.5">☁ 已同步雲端</p>}
+          {cloudSyncOk === false && <p className="text-[10px] text-amber-600 font-bold mt-0.5">⚠ 雲端同步失敗（已保留在本機，請檢查網路連線）</p>}
         </div>
         <div className="flex items-center gap-2 print:hidden">
           <div className="bg-stone-100 rounded-lg p-1 flex">
@@ -1280,10 +1367,6 @@ function Dashboard({ modules = MODULES, savedOk, answers, timeElapsed, formatTim
               <GraduationCap className="w-3 h-3" /><span className="hidden sm:inline">教育者</span>
             </button>
           </div>
-          <button onClick={exportRecordsCSV} title="匯出所有已保存的測驗紀錄"
-            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] flex items-center gap-1">
-            <FileText className="w-3 h-3" /><span className="hidden sm:inline">匯出 CSV</span>
-          </button>
           <button onClick={() => window.print()} title="列印或匯出本次結果為 PDF"
             className="px-2.5 py-1 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-bold text-[11px] flex items-center gap-1">
             <Printer className="w-3 h-3" /><span className="hidden sm:inline">匯出 PDF</span>
