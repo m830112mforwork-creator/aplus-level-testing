@@ -5,7 +5,7 @@ import {
   Type, BrainCircuit, BookText, Timer, Flame, Sparkles, CheckCircle2,
   XCircle, GraduationCap, Heart, Award, ArrowRight, ChevronRight,
   User, Users, Star, FileText, Apple, Pencil, Library, Mic, Settings,
-  Play, BookMarked, Rocket, Medal, Phone, ChevronLeft, Info, Printer, Lock, MapPin, CloudOff, RefreshCcw
+  Play, BookMarked, Rocket, Medal, Phone, ChevronLeft, Info, Printer, Lock, MapPin, CloudOff, RefreshCcw, Pause
 } from 'lucide-react';
 import { db } from './firebase';
 import { ref, push, get } from 'firebase/database';
@@ -763,6 +763,11 @@ const [gradeGroup, setGradeGroup] = useState('');
     }
   };
 
+  /* 只暫停目前正在播放的階段語音，不清空 ref（跟 stopClip 不同，用於使用者主動按暫停鍵） */
+  const pauseClip = () => {
+    clipAudioRef.current?.pause();
+  };
+
   const speak = (text, opts = {}) => {
     if (!('speechSynthesis' in window) || !text) return;
     window.speechSynthesis.cancel();
@@ -967,11 +972,12 @@ const [gradeGroup, setGradeGroup] = useState('');
             selectedVoiceName={selectedVoiceName} setSelectedVoiceName={setSelectedVoiceName}
             onTestVoice={(text) => speak(text)}
             onStart={startTest}
-            playClip={playClip}
+            playClip={playClip} pauseClip={pauseClip}
           />
         )}
         {screen === 'testing' && showModuleIntro && (
-          <ModuleIntro module={activeModules[moduleIdx]} idx={moduleIdx} total={activeModules.length} onStart={beginModule} />
+          <ModuleIntro module={activeModules[moduleIdx]} idx={moduleIdx} total={activeModules.length} onStart={beginModule}
+            playClip={playClip} pauseClip={pauseClip} />
         )}
         {screen === 'testing' && !showModuleIntro && currentQuestion && (
           <TestingScreen
@@ -988,9 +994,26 @@ const [gradeGroup, setGradeGroup] = useState('');
             answers={answers} timeElapsed={timeElapsed} formatTime={formatTime}
             studentName={studentName} studentGrade={studentGrade} campus={campus}
             onRestart={() => { setSavedOk(null); setCloudSyncOk(null); setScreen('campus'); }}
+            playClip={playClip} pauseClip={pauseClip}
           />
         )}
       </div>
+    </div>
+  );
+}
+
+/* ⭐ 階段語音的「再聽一次 / 暫停」控制鈕，Intro / ModuleIntro / Dashboard 共用 */
+function ClipButtons({ onReplay, onPause }) {
+  return (
+    <div className="flex items-center justify-center gap-2 mb-4">
+      <button onClick={onReplay}
+        className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-slate-600 rounded-lg text-xs font-bold flex items-center gap-1.5">
+        <RotateCcw className="w-3.5 h-3.5" />再聽一次
+      </button>
+      <button onClick={onPause}
+        className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-slate-600 rounded-lg text-xs font-bold flex items-center gap-1.5">
+        <Pause className="w-3.5 h-3.5" />暫停語音
+      </button>
     </div>
   );
 }
@@ -1000,7 +1023,7 @@ const [gradeGroup, setGradeGroup] = useState('');
    ═══════════════════════════════════════════════════════════════ */
 function IntroScreen({ modules, totalQuestions, gradeGroup, onBack,
                       studentName, setStudentName, studentGrade, setStudentGrade,
-                      availableVoices, selectedVoiceName, setSelectedVoiceName, onTestVoice, onStart, playClip }) {
+                      availableVoices, selectedVoiceName, setSelectedVoiceName, onTestVoice, onStart, playClip, pauseClip }) {
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
 
   useEffect(() => { playClip?.('welcome'); }, []);
@@ -1018,6 +1041,8 @@ function IntroScreen({ modules, totalQuestions, gradeGroup, onBack,
       </h1>
       <p className="text-slate-500 font-medium text-sm mb-1">{SCHOOL_NAME} · {SCHOOL_TAGLINE}</p>
       <p className="text-emerald-600 text-xs font-bold mb-6">五大模組綜合診斷 · 自主作答版</p>
+
+      <ClipButtons onReplay={() => playClip('welcome')} onPause={pauseClip} />
 
       {/* 學生資料 */}
       <div className="w-full max-w-sm space-y-2.5 mb-4">
@@ -1106,7 +1131,7 @@ function ModuleLine({ icon: Icon, color, name, label, qCount }) {
 /* ════════════════════════════════════════════════════════════════
    模組過場
    ═══════════════════════════════════════════════════════════════ */
-function ModuleIntro({ module, idx, total, onStart }) {
+function ModuleIntro({ module, idx, total, onStart, playClip, pauseClip }) {
   const tag = SKILL_TAGS[module.skill];
   const Icon = tag.icon;
   const tips = {
@@ -1125,6 +1150,7 @@ function ModuleIntro({ module, idx, total, onStart }) {
       <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-1.5">{module.name}</h2>
       <p className="text-base text-slate-500 mb-1">{module.label}</p>
       <p className="text-sm text-slate-400 mb-7">本模組共 {module.questions.length} 題</p>
+      <ClipButtons onReplay={() => playClip(`module-${module.id}`)} onPause={pauseClip} />
       <div className={`w-full max-w-md ${tag.bg} ${tag.border} border rounded-2xl p-4 mb-7 text-left`}>
         <p className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
           <Lightbulb className={`w-4 h-4 ${tag.color}`} />作答提示
@@ -1337,7 +1363,7 @@ function QuestionContent({ question, isSpeaking, onReplayAudio, audioBlocked }) 
 /* ════════════════════════════════════════════════════════════════
    Dashboard — 含學校優勢 + 招生 CTA
    ═══════════════════════════════════════════════════════════════ */
-function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElapsed, formatTime, studentName, studentGrade, campus, onRestart }) {
+function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElapsed, formatTime, studentName, studentGrade, campus, onRestart, playClip, pauseClip }) {
   const [view, setView] = useState('student');
 
   // 計算每模組真實表現
@@ -1403,6 +1429,14 @@ function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElaps
               <GraduationCap className="w-3 h-3" /><span className="hidden sm:inline">教育者</span>
             </button>
           </div>
+          <button onClick={() => playClip('complete')} title="再聽一次語音"
+            className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-slate-700 rounded-lg font-bold text-[11px] flex items-center gap-1">
+            <RotateCcw className="w-3 h-3" /><span className="hidden sm:inline">語音</span>
+          </button>
+          <button onClick={pauseClip} title="暫停語音"
+            className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-slate-700 rounded-lg font-bold text-[11px] flex items-center gap-1">
+            <Pause className="w-3 h-3" />
+          </button>
           <button onClick={() => window.print()} title="列印或匯出本次結果為 PDF"
             className="px-2.5 py-1 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-bold text-[11px] flex items-center gap-1">
             <Printer className="w-3 h-3" /><span className="hidden sm:inline">匯出 PDF</span>
