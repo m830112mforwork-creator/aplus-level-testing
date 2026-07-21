@@ -674,6 +674,7 @@ export default function APLUSLevelTesting() {
   const [cloudSyncOk, setCloudSyncOk] = useState(null);
   const [audioBlocked, setAudioBlocked] = useState(false);
   const speechPrimed = useRef(false);
+  const clipAudioRef = useRef(null);
   const [moduleIdx, setModuleIdx] = useState(0);
   const [qIdx, setQIdx] = useState(0);
   const [answers, setAnswers] = useState([]);
@@ -735,12 +736,31 @@ const [gradeGroup, setGradeGroup] = useState('');
   };
 
   /* ⭐ 階段歡迎語音：真人錄音檔，放在 public/audio/ 下。
-     檔案不存在時 play() 會被靜默忽略，不影響測驗流程。 */
-  const playClip = (name) => {
+     檔案不存在或播放被擋下時會靜默略過，不影響測驗流程。
+     每次呼叫都會先停掉還在播放的上一段，避免疊音；
+     可傳入 onEnded 讓下一段語音等這段真正播完再接著播。 */
+  const playClip = (name, onEnded) => {
+    if (clipAudioRef.current) {
+      clipAudioRef.current.pause();
+      clipAudioRef.current = null;
+    }
     try {
       const audio = new Audio(`${import.meta.env.BASE_URL}audio/${name}.mp3`);
-      audio.play().catch(() => {});
-    } catch {}
+      clipAudioRef.current = audio;
+      const finish = () => {
+        if (clipAudioRef.current === audio) clipAudioRef.current = null;
+        onEnded?.();
+      };
+      audio.addEventListener('ended', finish);
+      audio.play().catch(finish);
+    } catch { onEnded?.(); }
+  };
+
+  const stopClip = () => {
+    if (clipAudioRef.current) {
+      clipAudioRef.current.pause();
+      clipAudioRef.current = null;
+    }
   };
 
   const speak = (text, opts = {}) => {
@@ -771,12 +791,12 @@ const [gradeGroup, setGradeGroup] = useState('');
     setFeedback(null); setIsLocked(false); setStreak(0); setTimeElapsed(0);
     setShowModuleIntro(true);
     setScreen('testing');
-    playClip('welcome');
-    setTimeout(() => playClip(`module-${activeModules[0].id}`), 1500);
+    playClip(`module-${activeModules[0].id}`);
   };
 
   const beginModule = () => {
     primeSpeech();
+    stopClip();
     setShowModuleIntro(false);
     setAudioBlocked(false);
     const firstQ = activeModules[moduleIdx].questions[0];
@@ -947,6 +967,7 @@ const [gradeGroup, setGradeGroup] = useState('');
             selectedVoiceName={selectedVoiceName} setSelectedVoiceName={setSelectedVoiceName}
             onTestVoice={(text) => speak(text)}
             onStart={startTest}
+            playClip={playClip}
           />
         )}
         {screen === 'testing' && showModuleIntro && (
@@ -979,8 +1000,10 @@ const [gradeGroup, setGradeGroup] = useState('');
    ═══════════════════════════════════════════════════════════════ */
 function IntroScreen({ modules, totalQuestions, gradeGroup, onBack,
                       studentName, setStudentName, studentGrade, setStudentGrade,
-                      availableVoices, selectedVoiceName, setSelectedVoiceName, onTestVoice, onStart }) {
+                      availableVoices, selectedVoiceName, setSelectedVoiceName, onTestVoice, onStart, playClip }) {
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+
+  useEffect(() => { playClip?.('welcome'); }, []);
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-center p-6 sm:p-10 bg-white relative overflow-y-auto">
