@@ -734,6 +734,15 @@ const [gradeGroup, setGradeGroup] = useState('');
     } catch { /* 忽略 */ }
   };
 
+  /* ⭐ 階段歡迎語音：真人錄音檔，放在 public/audio/ 下。
+     檔案不存在時 play() 會被靜默忽略，不影響測驗流程。 */
+  const playClip = (name) => {
+    try {
+      const audio = new Audio(`${import.meta.env.BASE_URL}audio/${name}.mp3`);
+      audio.play().catch(() => {});
+    } catch {}
+  };
+
   const speak = (text, opts = {}) => {
     if (!('speechSynthesis' in window) || !text) return;
     window.speechSynthesis.cancel();
@@ -762,6 +771,8 @@ const [gradeGroup, setGradeGroup] = useState('');
     setFeedback(null); setIsLocked(false); setStreak(0); setTimeElapsed(0);
     setShowModuleIntro(true);
     setScreen('testing');
+    playClip('welcome');
+    setTimeout(() => playClip(`module-${activeModules[0].id}`), 1500);
   };
 
   const beginModule = () => {
@@ -812,6 +823,7 @@ const [gradeGroup, setGradeGroup] = useState('');
       setModuleIdx(nextModuleIdx);
       setQIdx(0);
       setShowModuleIntro(true);
+      playClip(`module-${activeModules[nextModuleIdx].id}`);
     } else {
       setQIdx(nextQIdx);
       const nextQ = currentModule.questions[nextQIdx];
@@ -840,6 +852,7 @@ const [gradeGroup, setGradeGroup] = useState('');
     setSavedOk(saveRecord(record));
     pushRecordToCloud(record).then(setCloudSyncOk);
     setScreen('dashboard');
+    playClip('complete');
   };
 
   const totalAnswered = answers.length;
