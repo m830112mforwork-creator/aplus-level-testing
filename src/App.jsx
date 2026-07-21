@@ -59,8 +59,6 @@ const FLASHCARD_TONE = {
    ═══════════════════════════════════════════════════════════════ */
 const SCHOOL_NAME = '耶加 A.P.L.U.S';                 // ✏️ EDIT 學校名稱
 const SCHOOL_TAGLINE = '對標 CEFR 國際標準的全面英語養成';  // ✏️ EDIT 標語
-const SCHOOL_CTA_PHONE = '請洽現場專員';                // ✏️ EDIT 諮詢電話
-const SCHOOL_CTA_URL   = '#';                          // ✏️ EDIT 報名連結
 
 /* ✏️ EDIT 學校優勢 — 萃取自教師手冊的核心特色 */
 const SCHOOL_ADVANTAGES = [
@@ -365,6 +363,99 @@ const MODULES = [
 const TOTAL_QUESTIONS = MODULES.reduce((s, m) => s + m.questions.length, 0);
 
 /* ════════════════════════════════════════════════════════════════
+   ⭐ 年級分流計畫 (GRADE PLANS)
+   coreLevels : 完整施測的級數
+   ceilingIds : 「天花板探測題」— 讓程度超前的孩子有機會測到更高級
+   ✏️ EDIT — 調整題目組成請改這裡
+   ═══════════════════════════════════════════════════════════════ */
+const GRADE_PLANS = {
+  low:  { label: '低年級', coreLevels: ['A', 'P', 'L'],                  ceilingIds: ['V4', 'GU1'] },  // 30 題
+  mid:  { label: '中年級', coreLevels: ['A','P','L','U','S','J6'],       ceilingIds: [] },             // 42 題
+  high: { label: '高年級', coreLevels: ['A','P','L','U','S','J6'],       ceilingIds: [] }              // 42 題
+};
+
+function buildModules(gradeGroup) {
+  const plan = GRADE_PLANS[gradeGroup];
+  if (!plan) return MODULES;
+  const allow = new Set(plan.coreLevels);
+  const ceiling = new Set(plan.ceilingIds);
+  return MODULES
+    .map(m => ({ ...m, questions: m.questions.filter(q => allow.has(q.level) || ceiling.has(q.id)) }))
+    .filter(m => m.questions.length > 0);
+}
+
+/* 依作答結果統計各級表現 */
+function computeLevelStats(answers) {
+  const stats = {};
+  LEVELS.forEach(L => stats[L] = { correct: 0, total: 0 });
+  answers.forEach(a => {
+    if (a.level && stats[a.level]) {
+      stats[a.level].total += 1;
+      if (a.isCorrect) stats[a.level].correct += 1;
+    }
+  });
+  return stats;
+}
+
+/* ⭐ 級數估計 (改良版)
+   - 通過門檻 60%
+   - 題數 < 2 的級數不採計 (避免單題定生死)
+   - 需「連續兩級」未達標才停止,避免單一題型失常拉低整體判定 */
+const PASS_RATE = 0.6;
+const MIN_ITEMS = 2;
+function estimateLevel(levelStats) {
+  let achieved = 'A';
+  let consecutiveFails = 0;
+  for (const L of LEVELS) {
+    const { correct, total } = levelStats[L];
+    if (total < MIN_ITEMS) continue;
+    if (correct / total >= PASS_RATE) { achieved = L; consecutiveFails = 0; }
+    else { consecutiveFails += 1; if (consecutiveFails >= 2) break; }
+  }
+  return achieved;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ⭐ 測驗紀錄保存 (localStorage) + CSV 匯出
+   ═══════════════════════════════════════════════════════════════ */
+const STORAGE_KEY = 'aplus_level_test_records_v1';
+const MAX_RECORDS = 300;
+
+function loadRecords() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+
+function saveRecord(record) {
+  try {
+    const list = loadRecords();
+    list.unshift(record);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_RECORDS)));
+    return true;
+  } catch { return false; }
+}
+
+function exportRecordsCSV() {
+  const list = loadRecords();
+  if (list.length === 0) { alert('目前沒有已保存的測驗紀錄。'); return; }
+  const head = ['測驗時間','姓名','年級','分流','判定級數','CEFR','總題數','答對','正確率(%)','用時(秒)',
+                ...Object.keys(SKILL_TAGS).map(k => k + '正確率(%)')];
+  const rows = list.map(r => [
+    r.ts, r.studentName, r.studentGrade, GRADE_PLANS[r.gradeGroup]?.label || r.gradeGroup,
+    r.level, LEVEL_INFO[r.level]?.cefr || '', r.total, r.correct, r.accuracy, r.seconds,
+    ...Object.keys(SKILL_TAGS).map(k => r.skillPct?.[k] ?? '')
+  ]);
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const csv = '\uFEFF' + [head, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `APLUS_程度測驗紀錄_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ════════════════════════════════════════════════════════════════
    ⭐ 改良版語音選擇 — 老師等級語音優先
    ═══════════════════════════════════════════════════════════════ */
 const TEACHER_VOICE_PRIORITY = [
@@ -405,6 +496,9 @@ function getEnglishVoices() {
    ═══════════════════════════════════════════════════════════════ */
 export default function APLUSLevelTesting() {
   const [screen, setScreen] = useState('grade');
+  const [savedOk, setSavedOk] = useState(null);
+  const [audioBlocked, setAudioBlocked] = useState(false);
+  const speechPrimed = useRef(false);
   const [moduleIdx, setModuleIdx] = useState(0);
   const [qIdx, setQIdx] = useState(0);
   const [answers, setAnswers] = useState([]);
@@ -446,9 +540,29 @@ const [gradeGroup, setGradeGroup] = useState('');
 
   const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
+  /* ⭐ 依年級分流動態組題 */
+  const activeModules = useMemo(() => buildModules(gradeGroup), [gradeGroup]);
+  const totalQuestions = useMemo(
+    () => activeModules.reduce((n, m) => n + m.questions.length, 0), [activeModules]);
+
+  /* ⭐ iOS 解鎖:speechSynthesis 的第一次 speak() 必須發生在使用者手勢的同步流程中,
+     否則之後由 setTimeout 觸發的播放全部會被 Safari 靜默擋掉。
+     這裡在按鈕的 onClick 內先播一段無聲語音把引擎「叫醒」。 */
+  const primeSpeech = () => {
+    if (speechPrimed.current || !('speechSynthesis' in window)) return;
+    try {
+      const warm = new SpeechSynthesisUtterance(' ');
+      warm.volume = 0;
+      warm.rate = 10;
+      window.speechSynthesis.speak(warm);
+      speechPrimed.current = true;
+    } catch { /* 忽略 */ }
+  };
+
   const speak = (text, opts = {}) => {
     if (!('speechSynthesis' in window) || !text) return;
     window.speechSynthesis.cancel();
+    window.speechSynthesis.resume();   // iOS/Chrome 偶發卡在 paused 狀態
     const u = new SpeechSynthesisUtterance(text);
     const voices = getEnglishVoices();
     const chosen = voices.find(v => v.name === selectedVoiceName) || pickBestVoice(voices);
@@ -457,13 +571,18 @@ const [gradeGroup, setGradeGroup] = useState('');
     u.rate = opts.rate ?? 0.85;     // 稍慢方便孩子聽
     u.pitch = opts.pitch ?? 1.05;   // 略高更溫暖
     u.volume = 1;
-    u.onstart = () => setIsSpeaking(true);
+    u.onstart = () => { setIsSpeaking(true); setAudioBlocked(false); };
     u.onend = () => setIsSpeaking(false);
-    u.onerror = () => setIsSpeaking(false);
+    u.onerror = () => { setIsSpeaking(false); setAudioBlocked(true); };
     window.speechSynthesis.speak(u);
+    /* 1.5 秒內若完全沒開始發聲,判定為被瀏覽器擋下,提示改用播放鍵 */
+    setTimeout(() => {
+      if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) setAudioBlocked(true);
+    }, 1500);
   };
 
   const startTest = () => {
+    primeSpeech();
     setModuleIdx(0); setQIdx(0); setAnswers([]); setSelectedOption(null);
     setFeedback(null); setIsLocked(false); setStreak(0); setTimeElapsed(0);
     setShowModuleIntro(true);
@@ -471,13 +590,17 @@ const [gradeGroup, setGradeGroup] = useState('');
   };
 
   const beginModule = () => {
+    primeSpeech();
     setShowModuleIntro(false);
-    const firstQ = MODULES[moduleIdx].questions[0];
-    if (firstQ?.audio) setTimeout(() => speak(firstQ.audio), 500);
+    setAudioBlocked(false);
+    const firstQ = activeModules[moduleIdx].questions[0];
+    if (firstQ?.audio) setTimeout(() => speak(firstQ.audio), 400);
   };
 
   const replayAudio = () => {
-    const q = MODULES[moduleIdx].questions[qIdx];
+    primeSpeech();
+    setAudioBlocked(false);
+    const q = activeModules[moduleIdx].questions[qIdx];
     if (q?.audio) speak(q.audio);
   };
 
@@ -485,29 +608,30 @@ const [gradeGroup, setGradeGroup] = useState('');
     if (isLocked) return;
     setIsLocked(true);
     setSelectedOption(option.id);
-    const q = MODULES[moduleIdx].questions[qIdx];
+    const q = activeModules[moduleIdx].questions[qIdx];
     const isCorrect = !!option.isCorrect;
     setFeedback(isCorrect ? 'correct' : 'incorrect');
     setStreak(s => isCorrect ? s + 1 : 0);
     const newAnswer = {
-      id: q.id, module: MODULES[moduleIdx].id, level: q.level || null,
+      id: q.id, module: activeModules[moduleIdx].id, level: q.level || null,
       skill: q.skill, isCorrect, selected: option.id, concept: q.concept,
       topic: q.topic || null
     };
-    setAnswers(prev => [...prev, newAnswer]);
-    setTimeout(() => goNext(), 1300);
+    const updated = [...answers, newAnswer];
+    setAnswers(updated);
+    setTimeout(() => goNext(updated), 1300);
   };
 
-  const goNext = () => {
+  const goNext = (currentAnswers = answers) => {
     setSelectedOption(null);
     setFeedback(null);
     setIsLocked(false);
-    const currentModule = MODULES[moduleIdx];
+    const currentModule = activeModules[moduleIdx];
     const nextQIdx = qIdx + 1;
     if (nextQIdx >= currentModule.questions.length) {
       const nextModuleIdx = moduleIdx + 1;
-      if (nextModuleIdx >= MODULES.length) {
-        finishTest();
+      if (nextModuleIdx >= activeModules.length) {
+        finishTest(currentAnswers);
         return;
       }
       setModuleIdx(nextModuleIdx);
@@ -520,61 +644,76 @@ const [gradeGroup, setGradeGroup] = useState('');
     }
   };
 
-  const finishTest = () => {
+  const finishTest = (finalAnswers) => {
     window.speechSynthesis?.cancel();
+    /* ⭐ 保存本次測驗紀錄至 localStorage */
+    const lvlStats = computeLevelStats(finalAnswers);
+    const correct = finalAnswers.filter(a => a.isCorrect).length;
+    const skillPct = {};
+    Object.keys(SKILL_TAGS).forEach(k => {
+      const sub = finalAnswers.filter(a => a.skill === k);
+      skillPct[k] = sub.length ? Math.round(sub.filter(a => a.isCorrect).length / sub.length * 100) : '';
+    });
+    setSavedOk(saveRecord({
+      ts: new Date().toLocaleString('zh-TW', { hour12: false }),
+      studentName: studentName.trim(), studentGrade: studentGrade.trim(), gradeGroup,
+      level: estimateLevel(lvlStats),
+      total: finalAnswers.length, correct,
+      accuracy: finalAnswers.length ? Math.round(correct / finalAnswers.length * 100) : 0,
+      seconds: timeElapsed, skillPct
+    }));
     setScreen('dashboard');
   };
 
   const totalAnswered = answers.length;
   const currentQuestion = screen === 'testing' && !showModuleIntro
-    ? MODULES[moduleIdx].questions[qIdx] : null;
+    ? activeModules[moduleIdx].questions[qIdx] : null;
 
   return (
     <div className="min-h-screen bg-stone-50 font-sans text-slate-800 flex items-center justify-center p-0 sm:p-6">
       <div className={`w-full bg-white sm:rounded-3xl shadow-xl overflow-hidden flex flex-col transition-all duration-500
         ${screen === 'dashboard' ? 'max-w-6xl' : 'max-w-3xl h-screen sm:h-[88vh] sm:min-h-[680px]'}`}>
         {screen === 'grade' && (
-                <div className="flex flex-col items-center justify-center h-full p-6 sm:p-10">
-                            <div className="text-center mb-8">
-                                          <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                                          <GraduationCap className="w-8 h-8 text-indigo-600" />
-                                          </div>div>
-                                          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">
-                                                          歡迎參加 A.P.L.U.S 程度測驗
-                                          </h1>h1>
-                                          <p className="text-slate-500 text-sm sm:text-base">
-                                                          請選擇學生目前的年級，我們將為您安排最適合的測驗題目
-                                          </p>p>
-                            </div>div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-lg">
-                              {[
-                  { key: 'low', label: '低年級', sub: '幼稚園 ～ 小二', emoji: '🌱', color: 'from-green-400 to-emerald-500', levels: ['A', 'P'] },
-                  { key: 'mid', label: '中年級', sub: '小三 ～ 小四', emoji: '🌿', color: 'from-blue-400 to-sky-500', levels: ['L', 'U'] },
-                  { key: 'high', label: '高年級', sub: '小五 ～ 小六以上', emoji: '🌳', color: 'from-violet-400 to-purple-500', levels: ['S', 'J6'] },
-                                ].map(({ key, label, sub, emoji, color, levels }) => (
-                                                  <button
-                                                                      key={key}
-                                                                      onClick={() => {
-                                                                                            setGradeGroup(key);
-                                                                                            setScreen('intro');
-                                                                      }}
-                                                                      className={`group relative flex flex-col items-center justify-center p-6 rounded-2xl bg-gradient-to-br ${color} text-white shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200 cursor-pointer`}
-                                                                    >
-                                                                    <span className="text-3xl mb-2">{emoji}</span>span>
-                                                                    <span className="text-xl font-bold">{label}</span>span>
-                                                                    <span className="text-xs opacity-80 mt-1">{sub}</span>span>
-                                                                    <div className="flex gap-1 mt-2">
-                                                                      {levels.map(l => (
-                                                                                            <span key={l} className="text-xs bg-white/20 rounded px-1.5 py-0.5 font-mono">{l}</span>span>
-                                                                                          ))}
-                                                                    </div>div>
-                                                  </button>button>
-                                                ))}
-                            </div>div>
-                </div>div>
-              )}</div>
+          <div className="flex flex-col items-center justify-center h-full p-6 sm:p-10">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <GraduationCap className="w-8 h-8 text-indigo-600" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2">
+                歡迎參加 A.P.L.U.S 程度測驗
+              </h1>
+              <p className="text-slate-500 text-sm sm:text-base">
+                請選擇學生目前的年級，我們將為您安排最適合的測驗題目
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-lg">
+              {[
+                { key: 'low',  label: '低年級', sub: '幼稚園 ～ 小二',   emoji: '🌱', color: 'from-green-400 to-emerald-500',  levels: ['A', 'P'] },
+                { key: 'mid',  label: '中年級', sub: '小三 ～ 小四',     emoji: '🌿', color: 'from-blue-400 to-sky-500',       levels: ['L', 'U'] },
+                { key: 'high', label: '高年級', sub: '小五 ～ 小六以上', emoji: '🌳', color: 'from-violet-400 to-purple-500',  levels: ['S', 'J6'] },
+              ].map(({ key, label, sub, emoji, color, levels }) => (
+                <button
+                  key={key}
+                  onClick={() => { setGradeGroup(key); setScreen('intro'); }}
+                  className={`group relative flex flex-col items-center justify-center p-6 rounded-2xl bg-gradient-to-br ${color} text-white shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200 cursor-pointer`}
+                >
+                  <span className="text-3xl mb-2">{emoji}</span>
+                  <span className="text-xl font-bold">{label}</span>
+                  <span className="text-xs opacity-80 mt-1">{sub}</span>
+                  <div className="flex gap-1 mt-2">
+                    {levels.map(l => (
+                      <span key={l} className="text-xs bg-white/20 rounded px-1.5 py-0.5 font-mono">{l}</span>
+                    ))}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {screen === 'intro' && (
           <IntroScreen
+            modules={activeModules} totalQuestions={totalQuestions}
+            gradeGroup={gradeGroup} onBack={() => setScreen('grade')}
             studentName={studentName} setStudentName={setStudentName}
             studentGrade={studentGrade} setStudentGrade={setStudentGrade}
             availableVoices={availableVoices}
@@ -584,22 +723,23 @@ const [gradeGroup, setGradeGroup] = useState('');
           />
         )}
         {screen === 'testing' && showModuleIntro && (
-          <ModuleIntro module={MODULES[moduleIdx]} idx={moduleIdx} total={MODULES.length} onStart={beginModule} />
+          <ModuleIntro module={activeModules[moduleIdx]} idx={moduleIdx} total={activeModules.length} onStart={beginModule} />
         )}
         {screen === 'testing' && !showModuleIntro && currentQuestion && (
           <TestingScreen
-            question={currentQuestion} module={MODULES[moduleIdx]}
-            qIdx={qIdx} totalAnswered={totalAnswered} totalQuestions={TOTAL_QUESTIONS}
+            question={currentQuestion} module={activeModules[moduleIdx]}
+            qIdx={qIdx} totalAnswered={totalAnswered} totalQuestions={totalQuestions}
             timeElapsed={timeElapsed} formatTime={formatTime} streak={streak}
             selectedOption={selectedOption} feedback={feedback} onAnswer={handleAnswer}
-            isSpeaking={isSpeaking} onReplayAudio={replayAudio}
+            isSpeaking={isSpeaking} onReplayAudio={replayAudio} audioBlocked={audioBlocked}
           />
         )}
         {screen === 'dashboard' && (
           <Dashboard
+            modules={activeModules} savedOk={savedOk}
             answers={answers} timeElapsed={timeElapsed} formatTime={formatTime}
             studentName={studentName} studentGrade={studentGrade}
-            onRestart={() => setScreen('intro')}
+            onRestart={() => { setSavedOk(null); setScreen('grade'); }}
           />
         )}
       </div>
@@ -610,7 +750,8 @@ const [gradeGroup, setGradeGroup] = useState('');
 /* ════════════════════════════════════════════════════════════════
    進場畫面 (含學生資料 + 語音選擇器)
    ═══════════════════════════════════════════════════════════════ */
-function IntroScreen({ studentName, setStudentName, studentGrade, setStudentGrade,
+function IntroScreen({ modules, totalQuestions, gradeGroup, onBack,
+                      studentName, setStudentName, studentGrade, setStudentGrade,
                       availableVoices, selectedVoiceName, setSelectedVoiceName, onTestVoice, onStart }) {
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
 
@@ -670,18 +811,23 @@ function IntroScreen({ studentName, setStudentName, studentGrade, setStudentGrad
 
       {/* 模組總覽 */}
       <div className="w-full max-w-sm space-y-1.5 mb-5 text-left">
-        <ModuleLine icon={Type}         color="violet"  name="Phonics"    label="發音認知" qCount={PHONICS_QUESTIONS.length} />
-        <ModuleLine icon={Pencil}       color="sky"     name="Spelling"   label="拼字運用" qCount={SPELLING_QUESTIONS.length} />
-        <ModuleLine icon={BookText}     color="amber"   name="Vocabulary" label="字彙量"   qCount={VOCAB_QUESTIONS.length} />
-        <ModuleLine icon={Library}      color="rose"    name="Reading"    label="閱讀理解" qCount={READING_QUESTIONS.length} />
-        <ModuleLine icon={BrainCircuit} color="emerald" name="Grammar"    label="文法結構" qCount={Object.values(GRAMMAR_QUESTIONS).flat().length} />
+        {modules.map(m => {
+          const c = { Phonics: 'violet', Spelling: 'sky', Vocabulary: 'amber', Reading: 'rose', Grammar: 'emerald' }[m.skill];
+          return <ModuleLine key={m.id} icon={SKILL_TAGS[m.skill].icon} color={c}
+                   name={m.name} label={m.label} qCount={m.questions.length} />;
+        })}
       </div>
 
       <button onClick={onStart} disabled={!studentName.trim()}
         className="w-full max-w-sm py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-stone-300 disabled:cursor-not-allowed active:scale-95 transition-all text-white rounded-2xl text-base font-bold flex items-center justify-center shadow-lg shadow-emerald-600/20">
         開始測驗 <ArrowRight className="w-4 h-4 ml-2" />
       </button>
-      <p className="text-[11px] text-slate-400 mt-3">預估時間 12 ~ 15 分鐘 · 共 {TOTAL_QUESTIONS} 題</p>
+      <p className="text-[11px] text-slate-400 mt-3">
+        {GRADE_PLANS[gradeGroup]?.label || ''}試卷 · 共 {totalQuestions} 題 · 預估 {Math.round(totalQuestions * 0.32)} ~ {Math.round(totalQuestions * 0.42)} 分鐘
+      </p>
+      <button onClick={onBack} className="mt-2 text-[11px] text-slate-400 hover:text-slate-600 underline underline-offset-2">
+        ← 重新選擇年級
+      </button>
     </div>
   );
 }
@@ -742,7 +888,7 @@ function ModuleIntro({ module, idx, total, onStart }) {
 /* ════════════════════════════════════════════════════════════════
    測驗畫面
    ═══════════════════════════════════════════════════════════════ */
-function TestingScreen({ question, module, qIdx, totalAnswered, totalQuestions, timeElapsed, formatTime, streak, selectedOption, feedback, onAnswer, isSpeaking, onReplayAudio }) {
+function TestingScreen({ question, module, qIdx, totalAnswered, totalQuestions, timeElapsed, formatTime, streak, selectedOption, feedback, onAnswer, isSpeaking, onReplayAudio, audioBlocked }) {
   const tag = SKILL_TAGS[question.skill];
   const SkillIcon = tag.icon;
   const overallProgress = ((totalAnswered + 1) / totalQuestions) * 100;
@@ -800,7 +946,7 @@ function TestingScreen({ question, module, qIdx, totalAnswered, totalQuestions, 
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center w-full mb-5">
-          <QuestionContent question={question} isSpeaking={isSpeaking} onReplayAudio={onReplayAudio} />
+          <QuestionContent question={question} isSpeaking={isSpeaking} onReplayAudio={onReplayAudio} audioBlocked={audioBlocked} />
         </div>
 
         <div className="flex flex-col gap-3">
@@ -850,7 +996,7 @@ function TestingScreen({ question, module, qIdx, totalAnswered, totalQuestions, 
 }
 
 /* 題目主體 (依題型渲染) */
-function QuestionContent({ question, isSpeaking, onReplayAudio }) {
+function QuestionContent({ question, isSpeaking, onReplayAudio, audioBlocked }) {
   // 1. Phonics 閃卡題
   if (question.flashcard) {
     const tone = FLASHCARD_TONE[question.flashcard.tone];
@@ -871,15 +1017,26 @@ function QuestionContent({ question, isSpeaking, onReplayAudio }) {
 
   // 2. 聽力題 (有 audio)
   if (question.audio) {
+    const needsTap = audioBlocked && !isSpeaking;
     return (
       <div className="flex flex-col items-center gap-4 w-full">
-        <button onClick={onReplayAudio}
-          className={`w-20 h-20 rounded-full flex items-center justify-center shadow-sm border-4 transition-all
-            ${isSpeaking ? 'bg-emerald-50 border-emerald-100 scale-105' : 'bg-white border-stone-100 hover:border-emerald-200'}`}>
-          {isSpeaking ? <AudioLines className="w-8 h-8 text-emerald-600 animate-pulse" /> : <Volume2 className="w-8 h-8 text-slate-400" />}
+        <button onClick={onReplayAudio} aria-label="播放題目語音"
+          className={`w-24 h-24 rounded-full flex items-center justify-center shadow-sm border-4 transition-all active:scale-95
+            ${isSpeaking
+              ? 'bg-emerald-50 border-emerald-100 scale-105'
+              : needsTap
+                ? 'bg-emerald-600 border-emerald-200 animate-pulse'
+                : 'bg-white border-stone-100 hover:border-emerald-200'}`}>
+          {isSpeaking
+            ? <AudioLines className="w-9 h-9 text-emerald-600 animate-pulse" />
+            : <Volume2 className={`w-9 h-9 ${needsTap ? 'text-white' : 'text-slate-400'}`} />}
         </button>
-        <h3 className="text-xl sm:text-2xl font-bold text-slate-700">點擊播放音檔</h3>
-        <p className="text-xs text-slate-400">可重複播放,聽清楚再作答</p>
+        <h3 className="text-xl sm:text-2xl font-bold text-slate-700">
+          {needsTap ? '請按一下喇叭聽題目' : '點擊播放音檔'}
+        </h3>
+        {needsTap
+          ? <p className="text-xs text-amber-600 font-bold">此裝置需要手動播放 · 可重複點擊</p>
+          : <p className="text-xs text-slate-400">可重複播放,聽清楚再作答</p>}
       </div>
     );
   }
@@ -926,46 +1083,24 @@ function QuestionContent({ question, isSpeaking, onReplayAudio }) {
 /* ════════════════════════════════════════════════════════════════
    Dashboard — 含學校優勢 + 招生 CTA
    ═══════════════════════════════════════════════════════════════ */
-function Dashboard({ answers, timeElapsed, formatTime, studentName, studentGrade, onRestart }) {
+function Dashboard({ modules = MODULES, savedOk, answers, timeElapsed, formatTime, studentName, studentGrade, onRestart }) {
   const [view, setView] = useState('student');
 
   // 計算每模組真實表現
   const moduleStats = useMemo(() => {
     const stats = {};
-    MODULES.forEach(m => stats[m.id] = { correct: 0, total: 0 });
+    modules.forEach(m => stats[m.id] = { correct: 0, total: 0 });
     answers.forEach(a => {
       if (!stats[a.module]) stats[a.module] = { correct: 0, total: 0 };
       stats[a.module].total += 1;
       if (a.isCorrect) stats[a.module].correct += 1;
     });
     return stats;
-  }, [answers]);
+  }, [answers, modules]);
 
   // 計算每級表現 (用於估計級數)
-  const levelStats = useMemo(() => {
-    const stats = {};
-    LEVELS.forEach(L => stats[L] = { correct: 0, total: 0 });
-    answers.forEach(a => {
-      if (a.level && stats[a.level]) {
-        stats[a.level].total += 1;
-        if (a.isCorrect) stats[a.level].correct += 1;
-      }
-    });
-    return stats;
-  }, [answers]);
-
-  // 估計級數:從 A 級開始往上,直到某級正確率 < 60% 即停止
-  const estimatedLevel = useMemo(() => {
-    let achieved = 'A';
-    for (const L of LEVELS) {
-      const { correct, total } = levelStats[L];
-      if (total === 0) continue;
-      const rate = correct / total;
-      if (rate >= 0.6) achieved = L;
-      else break;
-    }
-    return achieved;
-  }, [levelStats]);
+  const levelStats = useMemo(() => computeLevelStats(answers), [answers]);
+  const estimatedLevel = useMemo(() => estimateLevel(levelStats), [levelStats]);
 
   const nextLevelIdx = Math.min(LEVELS.indexOf(estimatedLevel) + 1, LEVELS.length - 1);
   const nextLevel = LEVELS[nextLevelIdx];
@@ -976,10 +1111,10 @@ function Dashboard({ answers, timeElapsed, formatTime, studentName, studentGrade
   const totalAnswered = answers.length;
   const overallAccuracy = totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
   const mistakes = useMemo(() => answers.filter(a => !a.isCorrect).map(a => {
-    const allQs = MODULES.flatMap(m => m.questions);
+    const allQs = modules.flatMap(m => m.questions);
     const fullQ = allQs.find(q => q.id === a.id);
     return { ...a, fullQuestion: fullQ };
-  }), [answers]);
+  }), [answers, modules]);
 
   const radarData = Object.keys(SKILL_TAGS).map(s => {
     const moduleStat = moduleStats[s.toLowerCase()] || { correct: 0, total: 0 };
@@ -998,6 +1133,8 @@ function Dashboard({ answers, timeElapsed, formatTime, studentName, studentGrade
             <BarChart3 className="w-4 h-4 text-emerald-600" />Level Testing 結果報告
           </h2>
           {studentName && <p className="text-[11px] text-slate-500 mt-0.5">學生:{studentName} {studentGrade && `· ${studentGrade}`}</p>}
+          {savedOk === true && <p className="text-[10px] text-emerald-600 font-bold mt-0.5">✓ 已保存至本機紀錄</p>}
+          {savedOk === false && <p className="text-[10px] text-amber-600 font-bold mt-0.5">⚠ 本機儲存失敗（可能為無痕模式），請立即匯出</p>}
         </div>
         <div className="flex items-center gap-2">
           <div className="bg-stone-100 rounded-lg p-1 flex">
@@ -1010,6 +1147,10 @@ function Dashboard({ answers, timeElapsed, formatTime, studentName, studentGrade
               <GraduationCap className="w-3 h-3" /><span className="hidden sm:inline">教育者</span>
             </button>
           </div>
+          <button onClick={exportRecordsCSV} title="匯出所有已保存的測驗紀錄"
+            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] flex items-center gap-1">
+            <FileText className="w-3 h-3" /><span className="hidden sm:inline">匯出 CSV</span>
+          </button>
           <button onClick={onRestart} className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-slate-700 rounded-lg font-bold text-[11px] flex items-center gap-1">
             <RotateCcw className="w-3 h-3" /><span className="hidden sm:inline">重測</span>
           </button>
@@ -1047,6 +1188,7 @@ function Dashboard({ answers, timeElapsed, formatTime, studentName, studentGrade
         <div className="lg:col-span-8">
           {view === 'student' ? (
             <StudentView
+              modules={modules}
               levelData={levelData} estimatedLevel={estimatedLevel}
               nextLevel={nextLevel} nextLevelData={nextLevelData}
               moduleStats={moduleStats} mistakes={mistakes}
@@ -1078,7 +1220,7 @@ function Stat({ icon: Icon, value, label, color }) {
 /* ════════════════════════════════════════════════════════════════
    學生視角 — 鼓勵 + 下一級預覽 + 學校優勢 + CTA
    ═══════════════════════════════════════════════════════════════ */
-function StudentView({ levelData, estimatedLevel, nextLevel, nextLevelData, moduleStats, mistakes }) {
+function StudentView({ modules = MODULES, levelData, estimatedLevel, nextLevel, nextLevelData, moduleStats, mistakes }) {
   const nextHighlights = COURSE_HIGHLIGHTS[nextLevel] || [];
 
   return (
@@ -1100,7 +1242,7 @@ function StudentView({ levelData, estimatedLevel, nextLevel, nextLevelData, modu
           <BarChart3 className="w-4 h-4 text-emerald-600" />我的能力成績單
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
-          {MODULES.map(m => {
+          {modules.map(m => {
             const stat = moduleStats[m.id] || { correct: 0, total: 0 };
             const tag = SKILL_TAGS[m.skill];
             return <SkillBar key={m.id} title={`${m.name} ${m.label}`} correct={stat.correct} total={stat.total} hex={tag.hex} />;
@@ -1159,32 +1301,6 @@ function StudentView({ levelData, estimatedLevel, nextLevel, nextLevelData, modu
               </div>
             );
           })}
-        </div>
-      </div>
-
-      {/* ⭐ 招生 CTA */}
-      <div className="bg-gradient-to-br from-red-500 via-red-600 to-orange-600 p-6 sm:p-7 rounded-2xl text-white relative overflow-hidden shadow-xl">
-        <div className="absolute -top-5 -right-5 opacity-10">
-          <Apple className="w-40 h-40" fill="currentColor" />
-        </div>
-        <div className="relative z-10">
-          <p className="text-white/80 uppercase tracking-widest text-[10px] font-black mb-2">START YOUR JOURNEY</p>
-          <h3 className="text-xl sm:text-2xl font-black mb-2">
-            加入 {SCHOOL_NAME} {nextLevelData.name} 班級
-          </h3>
-          <p className="text-white/90 text-sm leading-relaxed mb-5">
-            專業老師 + 系統化教材 + 溫暖學習氛圍,讓 {studentNameOrYou()} 在 Level {nextLevel} 穩穩前進。
-            報名前可以先預約免費試聽課,實際感受我們的教學風格。
-          </p>
-          <div className="flex flex-col sm:flex-row gap-2.5">
-            <a href={SCHOOL_CTA_URL}
-              className="flex-1 px-5 py-3 bg-white hover:bg-stone-50 active:scale-95 transition text-red-600 rounded-xl text-sm font-black flex items-center justify-center gap-2 shadow-lg">
-              <ArrowRight className="w-4 h-4" />立即預約試聽
-            </a>
-            <div className="flex-1 px-5 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
-              <Phone className="w-4 h-4" />{SCHOOL_CTA_PHONE}
-            </div>
-          </div>
         </div>
       </div>
 
