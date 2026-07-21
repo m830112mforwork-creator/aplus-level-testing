@@ -5,7 +5,7 @@ import {
   Type, BrainCircuit, BookText, Timer, Flame, Sparkles, CheckCircle2,
   XCircle, GraduationCap, Heart, Award, ArrowRight, ChevronRight,
   User, Users, Star, FileText, Apple, Pencil, Library, Mic, Settings,
-  Play, BookMarked, Rocket, Medal, Phone
+  Play, BookMarked, Rocket, Medal, Phone, ChevronLeft, Info, Printer, Lock
 } from 'lucide-react';
 /* ════════════════════════════════════════════════════════════════
    A.P.L.U.S Level Testing v4 — Recruitment-Optimized
@@ -374,6 +374,12 @@ const GRADE_PLANS = {
   high: { label: '高年級', coreLevels: ['A','P','L','U','S','J6'],       ceilingIds: [] }              // 42 題
 };
 
+const GRADE_OPTIONS = {
+  low:  ['幼稚園', '小一', '小二'],
+  mid:  ['小三', '小四'],
+  high: ['小五', '小六', '國一', '國二以上'],
+};
+
 function buildModules(gradeGroup) {
   const plan = GRADE_PLANS[gradeGroup];
   if (!plan) return MODULES;
@@ -453,6 +459,122 @@ function exportRecordsCSV() {
   a.download = `APLUS_程度測驗紀錄_${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ⭐ 歷史紀錄總覽 (老師端瀏覽所有已保存的測驗紀錄)
+   ═══════════════════════════════════════════════════════════════ */
+const RECORDS_PASSWORD = '1111';
+
+function RecordsPasswordGate({ onBack, onUnlock }) {
+  const [pwd, setPwd] = useState('');
+  const [error, setError] = useState(false);
+
+  const submit = () => {
+    if (pwd === RECORDS_PASSWORD) onUnlock();
+    else setError(true);
+  };
+
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center p-10 gap-4 text-center">
+      <div className="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center">
+        <Lock className="w-6 h-6 text-indigo-600" />
+      </div>
+      <div>
+        <h2 className="text-lg font-bold text-slate-800">需要密碼才能查看</h2>
+        <p className="text-slate-500 text-sm mt-1">請輸入密碼以進入歷史測驗紀錄總覽</p>
+      </div>
+      <input
+        type="password" autoFocus value={pwd}
+        onChange={e => { setPwd(e.target.value); setError(false); }}
+        onKeyDown={e => e.key === 'Enter' && submit()}
+        placeholder="密碼"
+        className={`w-full max-w-[220px] px-4 py-2.5 bg-stone-50 border rounded-xl text-sm font-medium text-center focus:outline-none ${error ? 'border-red-400' : 'border-stone-200 focus:border-emerald-400'}`}
+      />
+      {error && <p className="text-red-500 text-xs font-bold">密碼錯誤，請再試一次</p>}
+      <div className="flex gap-2 mt-1">
+        <button onClick={onBack} className="px-4 py-2 bg-stone-100 hover:bg-stone-200 text-slate-700 rounded-lg font-bold text-sm">
+          返回
+        </button>
+        <button onClick={submit} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm">
+          確認
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RecordsOverview({ onBack }) {
+  const [unlocked, setUnlocked] = useState(false);
+  const records = unlocked ? loadRecords() : [];
+  const formatSeconds = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+
+  if (!unlocked) {
+    return <RecordsPasswordGate onBack={onBack} onUnlock={() => setUnlocked(true)} />;
+  }
+
+  return (
+    <div className="flex flex-col h-full overflow-y-auto p-6 sm:p-10">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <Users className="w-5 h-5 text-emerald-600" />歷史測驗紀錄總覽
+          </h2>
+          <p className="text-slate-500 text-sm mt-1">共 {records.length} 筆紀錄（保存在此裝置瀏覽器中）</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={exportRecordsCSV}
+            className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm flex items-center gap-1.5">
+            <FileText className="w-4 h-4" />匯出 CSV
+          </button>
+          <button onClick={onBack}
+            className="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-slate-700 rounded-lg font-bold text-sm flex items-center gap-1.5">
+            <ChevronLeft className="w-4 h-4" />返回
+          </button>
+        </div>
+      </div>
+
+      {records.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 gap-2">
+          <Info className="w-10 h-10" />
+          <p>目前沒有已保存的測驗紀錄。</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto border border-stone-200 rounded-2xl">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-stone-50 text-slate-500 text-xs uppercase tracking-wider">
+              <tr>
+                <th className="px-4 py-3">時間</th>
+                <th className="px-4 py-3">姓名</th>
+                <th className="px-4 py-3">年級</th>
+                <th className="px-4 py-3">分流</th>
+                <th className="px-4 py-3">判定級數</th>
+                <th className="px-4 py-3">正確率</th>
+                <th className="px-4 py-3">用時</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {records.map((r, i) => (
+                <tr key={i} className="hover:bg-stone-50">
+                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{r.ts}</td>
+                  <td className="px-4 py-3 font-bold text-slate-800">{r.studentName || '—'}</td>
+                  <td className="px-4 py-3 text-slate-600">{r.studentGrade || '—'}</td>
+                  <td className="px-4 py-3 text-slate-600">{GRADE_PLANS[r.gradeGroup]?.label || r.gradeGroup || '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold text-xs">
+                      Level {r.level} · {LEVEL_INFO[r.level]?.cefr}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{r.correct}/{r.total}（{r.accuracy}%）</td>
+                  <td className="px-4 py-3 text-slate-600">{formatSeconds(r.seconds)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -670,9 +792,9 @@ const [gradeGroup, setGradeGroup] = useState('');
     ? activeModules[moduleIdx].questions[qIdx] : null;
 
   return (
-    <div className="min-h-screen bg-stone-50 font-sans text-slate-800 flex items-center justify-center p-0 sm:p-6">
-      <div className={`w-full bg-white sm:rounded-3xl shadow-xl overflow-hidden flex flex-col transition-all duration-500
-        ${screen === 'dashboard' ? 'max-w-6xl' : 'max-w-3xl h-screen sm:h-[88vh] sm:min-h-[680px]'}`}>
+    <div className="min-h-screen bg-stone-50 font-sans text-slate-800 flex items-center justify-center p-0 sm:p-6 print:p-0 print:bg-white print:min-h-0">
+      <div className={`w-full bg-white sm:rounded-3xl shadow-xl overflow-hidden flex flex-col transition-all duration-500 print:rounded-none print:shadow-none print:overflow-visible print:max-w-full
+        ${screen === 'dashboard' || screen === 'records' ? 'max-w-6xl' : 'max-w-3xl h-screen sm:h-[88vh] sm:min-h-[680px]'}`}>
         {screen === 'grade' && (
           <div className="flex flex-col items-center justify-center h-full p-6 sm:p-10">
             <div className="text-center mb-8">
@@ -708,7 +830,14 @@ const [gradeGroup, setGradeGroup] = useState('');
                 </button>
               ))}
             </div>
+            <button onClick={() => setScreen('records')}
+              className="mt-8 text-xs text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1">
+              <Users className="w-3.5 h-3.5" />查看歷史測驗紀錄總覽
+            </button>
           </div>
+        )}
+        {screen === 'records' && (
+          <RecordsOverview onBack={() => setScreen('grade')} />
         )}
         {screen === 'intro' && (
           <IntroScreen
@@ -774,9 +903,13 @@ function IntroScreen({ modules, totalQuestions, gradeGroup, onBack,
         <input value={studentName} onChange={e => setStudentName(e.target.value)}
           placeholder="Name 姓名" autoFocus
           className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm font-medium focus:outline-none focus:border-emerald-400 focus:bg-white" />
-        <input value={studentGrade} onChange={e => setStudentGrade(e.target.value)}
-          placeholder="Grade 年級 (例如:小三)"
-          className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm font-medium focus:outline-none focus:border-emerald-400 focus:bg-white" />
+        <select value={studentGrade} onChange={e => setStudentGrade(e.target.value)}
+          className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:border-emerald-400 focus:bg-white">
+          <option value="" disabled>Grade 年級</option>
+          {(GRADE_OPTIONS[gradeGroup] || []).map(g => (
+            <option key={g} value={g}>{g}</option>
+          ))}
+        </select>
       </div>
 
       {/* 🎙️ 語音設定 (可展開) */}
@@ -1126,8 +1259,8 @@ function Dashboard({ modules = MODULES, savedOk, answers, timeElapsed, formatTim
   });
 
   return (
-    <div className="bg-stone-50 flex flex-col h-full overflow-y-auto">
-      <div className="bg-white px-5 sm:px-10 py-4 border-b border-stone-200 flex justify-between items-center sticky top-0 z-30">
+    <div className="bg-stone-50 flex flex-col h-full overflow-y-auto print:h-auto print:overflow-visible print:bg-white">
+      <div className="bg-white px-5 sm:px-10 py-4 border-b border-stone-200 flex justify-between items-center sticky top-0 z-30 print:static">
         <div>
           <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-emerald-600" />Level Testing 結果報告
@@ -1136,7 +1269,7 @@ function Dashboard({ modules = MODULES, savedOk, answers, timeElapsed, formatTim
           {savedOk === true && <p className="text-[10px] text-emerald-600 font-bold mt-0.5">✓ 已保存至本機紀錄</p>}
           {savedOk === false && <p className="text-[10px] text-amber-600 font-bold mt-0.5">⚠ 本機儲存失敗（可能為無痕模式），請立即匯出</p>}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 print:hidden">
           <div className="bg-stone-100 rounded-lg p-1 flex">
             <button onClick={() => setView('student')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition ${view === 'student' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500'}`}>
@@ -1151,13 +1284,17 @@ function Dashboard({ modules = MODULES, savedOk, answers, timeElapsed, formatTim
             className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] flex items-center gap-1">
             <FileText className="w-3 h-3" /><span className="hidden sm:inline">匯出 CSV</span>
           </button>
+          <button onClick={() => window.print()} title="列印或匯出本次結果為 PDF"
+            className="px-2.5 py-1 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-bold text-[11px] flex items-center gap-1">
+            <Printer className="w-3 h-3" /><span className="hidden sm:inline">匯出 PDF</span>
+          </button>
           <button onClick={onRestart} className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-slate-700 rounded-lg font-bold text-[11px] flex items-center gap-1">
             <RotateCcw className="w-3 h-3" /><span className="hidden sm:inline">重測</span>
           </button>
         </div>
       </div>
 
-      <div className="p-4 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-5 max-w-7xl mx-auto w-full pb-12">
+      <div className="p-4 sm:p-8 grid grid-cols-1 lg:grid-cols-12 print:grid-cols-12 gap-5 max-w-7xl mx-auto w-full pb-12">
         {/* 左側 */}
         <div className="lg:col-span-4 flex flex-col gap-5">
           <div className="bg-emerald-600 p-7 rounded-[1.75rem] shadow-lg text-white relative overflow-hidden">
@@ -1220,8 +1357,8 @@ function Stat({ icon: Icon, value, label, color }) {
 /* ════════════════════════════════════════════════════════════════
    學生視角 — 鼓勵 + 下一級預覽 + 學校優勢 + CTA
    ═══════════════════════════════════════════════════════════════ */
-function StudentView({ modules = MODULES, levelData, estimatedLevel, nextLevel, nextLevelData, moduleStats, mistakes }) {
-  const nextHighlights = COURSE_HIGHLIGHTS[nextLevel] || [];
+function StudentView({ modules = MODULES, levelData, estimatedLevel, moduleStats, mistakes }) {
+  const currentHighlights = COURSE_HIGHLIGHTS[estimatedLevel] || [];
 
   return (
     <div className="flex flex-col gap-5">
@@ -1257,17 +1394,17 @@ function StudentView({ modules = MODULES, levelData, estimatedLevel, nextLevel, 
           <div className="relative z-10">
             <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1">YOUR NEXT STEP</p>
             <h3 className="text-lg sm:text-xl font-black text-amber-900 mb-2">
-              🎓 你已準備好挑戰 Level {nextLevel}
+              🎓 接下來,在 Level {estimatedLevel} 你會學到
             </h3>
             <p className="text-amber-800/90 text-sm mb-4">
-              <strong>{nextLevelData.name}</strong> ({nextLevelData.cefr}) · 適合 {nextLevelData.grade} · {nextLevelData.desc}
+              <strong>{levelData.name}</strong> ({levelData.cefr}) · 適合 {levelData.grade} · {levelData.desc}
             </p>
             <div className="bg-white/70 backdrop-blur-sm border border-amber-200 rounded-xl p-4">
               <p className="text-xs font-black text-amber-700 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-                <BookMarked className="w-3.5 h-3.5" />在 Level {nextLevel} 你會學到
+                <BookMarked className="w-3.5 h-3.5" />課程重點
               </p>
               <ul className="space-y-1.5">
-                {nextHighlights.map((h, i) => (
+                {currentHighlights.map((h, i) => (
                   <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />{h}
                   </li>
