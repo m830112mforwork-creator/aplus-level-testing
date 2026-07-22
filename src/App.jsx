@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { db } from './firebase';
 import { ref, push, get } from 'firebase/database';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas-pro';
 /* ════════════════════════════════════════════════════════════════
    A.P.L.U.S Level Testing v4 — Recruitment-Optimized
    • 5 模組綜合診斷 (跳過 Speaking,自主作答)
@@ -1416,6 +1418,40 @@ function QuestionContent({ question, isSpeaking, onReplayAudio, audioBlocked }) 
    ═══════════════════════════════════════════════════════════════ */
 function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElapsed, formatTime, studentName, studentGrade, campus, onRestart, playClip, pauseClip }) {
   const [view, setView] = useState('student');
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const contentRef = useRef(null);
+
+  /* ⭐ 匯出 PDF：直接把結果內容畫成圖片再包成 PDF 下載，不依賴瀏覽器原生列印
+     (window.print() 在部分機構管理的 iPad 上會被限制，完全沒有反應) */
+  const exportPdf = async () => {
+    if (!contentRef.current || exportingPdf) return;
+    setExportingPdf(true);
+    try {
+      const canvas = await html2canvas(contentRef.current, { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/jpeg', 0.85);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+      while (heightLeft > 0) {
+        position -= pageHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      pdf.save(`APLUS_${studentName || '測驗結果'}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (e) {
+      console.error('PDF 匯出失敗', e);
+      alert('PDF 匯出失敗，請確認網路連線後再試一次。');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
 
   // 計算每模組真實表現
   const moduleStats = useMemo(() => {
@@ -1488,9 +1524,9 @@ function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElaps
             className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-slate-700 rounded-lg font-bold text-[11px] flex items-center gap-1">
             <Pause className="w-3 h-3" />
           </button>
-          <button onClick={() => window.print()} title="列印或匯出本次結果為 PDF"
-            className="px-2.5 py-1 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-bold text-[11px] flex items-center gap-1">
-            <Printer className="w-3 h-3" /><span className="hidden sm:inline">匯出 PDF</span>
+          <button onClick={exportPdf} disabled={exportingPdf} title="下載本次結果為 PDF 檔案"
+            className="px-2.5 py-1 bg-slate-700 hover:bg-slate-800 disabled:opacity-60 text-white rounded-lg font-bold text-[11px] flex items-center gap-1">
+            <Printer className="w-3 h-3" /><span className="hidden sm:inline">{exportingPdf ? '匯出中...' : '匯出 PDF'}</span>
           </button>
           <button onClick={onRestart} className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-slate-700 rounded-lg font-bold text-[11px] flex items-center gap-1">
             <RotateCcw className="w-3 h-3" /><span className="hidden sm:inline">重測</span>
@@ -1498,7 +1534,7 @@ function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElaps
         </div>
       </div>
 
-      <div className="p-4 sm:p-8 grid grid-cols-1 lg:grid-cols-12 print:grid-cols-12 gap-5 max-w-7xl mx-auto w-full pb-12">
+      <div ref={contentRef} className="p-4 sm:p-8 grid grid-cols-1 lg:grid-cols-12 print:grid-cols-12 gap-5 max-w-7xl mx-auto w-full pb-12 bg-stone-50">
         {/* 左側 */}
         <div className="lg:col-span-4 flex flex-col gap-5">
           <div className="bg-emerald-600 p-7 rounded-[1.75rem] shadow-lg text-white relative overflow-hidden">
