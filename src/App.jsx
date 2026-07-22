@@ -232,7 +232,14 @@ const READING_QUESTIONS = [
     prompt: 'What is the article mainly about?',
     options: [{ id: 'a', label: 'Dolphins are smart sea animals.', isCorrect: true }, { id: 'b', label: 'Scientists are smart.' }, { id: 'c', label: 'Dolphins live on land.' }],
     concept: 'Success articles 段落主旨擷取',
-    explanation: '文章圍繞 dolphins 的聰明、友善、生活與溝通,主旨是描述 dolphins。' }
+    explanation: '文章圍繞 dolphins 的聰明、友善、生活與溝通,主旨是描述 dolphins。' },
+  { id: 'R6', skill: 'Reading', level: 'J6',
+    instruction: '讀長文,依細節作答',
+    passage: 'Plastic pollution has become a serious problem in oceans around the world. Every year, millions of tons of plastic waste end up in the sea, harming fish, turtles, and other sea animals. Many countries are now trying to reduce plastic use by banning plastic bags and straws. Scientists say that if people do not change their habits soon, the ocean will be filled with more plastic than fish by 2050.',
+    prompt: 'According to scientists, what will happen if people do not change their habits?',
+    options: [{ id: 'a', label: 'The ocean will have more plastic than fish by 2050.', isCorrect: true }, { id: 'b', label: 'Plastic bags will be banned everywhere.' }, { id: 'c', label: 'Sea animals will stop eating plastic.' }],
+    concept: 'J6 長文閱讀 (環境議題) 細節擷取與因果推論',
+    explanation: '文章末句明確指出 "if people do not change their habits soon, the ocean will be filled with more plastic than fish by 2050",屬於依原文細節作答的因果推論題。' }
 ];
 
 const GRAMMAR_QUESTIONS = {
@@ -347,7 +354,17 @@ const GRAMMAR_QUESTIONS = {
       instruction: '選出最合適的助動詞', prompt: 'You ___ wear a helmet when riding a bike.',
       options: [{ id: 'a', label: 'should', isCorrect: true }, { id: 'b', label: 'can' }, { id: 'c', label: 'will' }],
       concept: '情態助動詞',
-      explanation: 'should 表「應該、建議」。can = 能夠,will = 將會,must = 必須,may = 可能。' }
+      explanation: 'should 表「應該、建議」。can = 能夠,will = 將會,must = 必須,may = 可能。' },
+    { id: 'GJ3', skill: 'Grammar', level: 'J6', topic: 'Conditionals',
+      instruction: '選出正確的條件句', prompt: 'If it ___ tomorrow, we will stay home.',
+      options: [{ id: 'a', label: 'rains', isCorrect: true }, { id: 'b', label: 'rained' }, { id: 'c', label: 'will rain' }],
+      concept: '條件句 (第一類條件句)',
+      explanation: '表「未來可能發生」的條件句：If 子句用現在式 (rains)，主要子句用 will + 原形動詞。' },
+    { id: 'GJ4', skill: 'Grammar', level: 'J6', topic: 'Relative Pronouns',
+      instruction: '選出正確的關係代名詞', prompt: 'The girl ___ is standing over there is my sister.',
+      options: [{ id: 'a', label: 'who', isCorrect: true }, { id: 'b', label: 'which' }, { id: 'c', label: 'whose' }],
+      concept: '關係代名詞',
+      explanation: '先行詞 the girl 是「人」，關係代名詞要用 who；which 用於物，whose 表所有格關係。' }
   ]
 };
 
