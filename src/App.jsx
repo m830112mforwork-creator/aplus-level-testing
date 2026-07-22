@@ -59,7 +59,7 @@ const FLASHCARD_TONE = {
    ⭐ 學校優勢資料 (萃取自《Level Testing Result - Teacher's Guide》)
    ⚠️ EDIT HERE — 你可以隨時修改以下內容以符合品牌定位
    ═══════════════════════════════════════════════════════════════ */
-const SCHOOL_NAME = '耶加 A.P.L.U.S';                 // ✏️ EDIT 學校名稱
+const SCHOOL_NAME = '耶加I.E.E. System';               // ✏️ EDIT 學校名稱
 const SCHOOL_TAGLINE = '對標 CEFR 國際標準的全面英語養成';  // ✏️ EDIT 標語
 
 /* ✏️ EDIT 學校優勢 — 萃取自教師手冊的核心特色 */
