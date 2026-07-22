@@ -407,20 +407,19 @@ function computeLevelStats(answers) {
   return stats;
 }
 
-/* ⭐ 級數估計 (改良版)
-   - 通過門檻 60%
+/* ⭐ 級數估計
+   - 通過門檻 80%
    - 題數 < 2 的級數不採計 (避免單題定生死)
-   - 需「連續兩級」未達標才停止,避免單一題型失常拉低整體判定 */
-const PASS_RATE = 0.6;
+   - 由低到高逐級檢查,只要有一級未達標就停止,最終級數 = 最後一個達標的級數 */
+const PASS_RATE = 0.8;
 const MIN_ITEMS = 2;
 function estimateLevel(levelStats) {
   let achieved = 'A';
-  let consecutiveFails = 0;
   for (const L of LEVELS) {
     const { correct, total } = levelStats[L];
     if (total < MIN_ITEMS) continue;
-    if (correct / total >= PASS_RATE) { achieved = L; consecutiveFails = 0; }
-    else { consecutiveFails += 1; if (consecutiveFails >= 2) break; }
+    if (correct / total >= PASS_RATE) { achieved = L; }
+    else { break; }
   }
   return achieved;
 }
