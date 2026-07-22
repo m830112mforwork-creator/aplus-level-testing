@@ -388,9 +388,9 @@ const TOTAL_QUESTIONS = MODULES.reduce((s, m) => s + m.questions.length, 0);
    ✏️ EDIT — 調整題目組成請改這裡
    ═══════════════════════════════════════════════════════════════ */
 const GRADE_PLANS = {
-  low:  { label: '低年級', coreLevels: ['A', 'P', 'L'],                  ceilingIds: ['V4', 'GU1'] },  // 30 題
-  mid:  { label: '中年級', coreLevels: ['A','P','L','U','S','J6'],       ceilingIds: [] },             // 42 題
-  high: { label: '高年級', coreLevels: ['A','P','L','U','S','J6'],       ceilingIds: [] }              // 42 題
+  low:  { label: '低年級', coreLevels: ['A', 'P', 'L'],            ceilingIds: ['V4', 'GU1'] },  // 30 題
+  mid:  { label: '中年級', coreLevels: ['A','P','L','U','S'],      ceilingIds: [] },             // 39 題 (不含 J6)
+  high: { label: '高年級', coreLevels: ['A','P','L','U','S','J6'], ceilingIds: [] }              // 45 題 (含 J6)
 };
 
 const GRADE_OPTIONS = {
