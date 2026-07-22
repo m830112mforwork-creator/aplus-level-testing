@@ -1764,7 +1764,7 @@ function EducatorView({ levelData, estimatedLevel, nextLevel, nextLevelData, mod
                     {isCurrent && <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-emerald-600 text-white">當前估計</span>}
                   </div>
                   <div className="h-1 bg-white border border-stone-200 rounded-full overflow-hidden mt-1.5">
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: pct >= 60 ? '#10B981' : pct >= 40 ? '#F59E0B' : '#F43F5E' }} />
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: pct >= PASS_RATE * 100 ? '#10B981' : pct >= PASS_RATE * 50 ? '#F59E0B' : '#F43F5E' }} />
                   </div>
                 </div>
                 <div className="text-xs font-bold text-slate-600 w-16 text-right">
@@ -1785,7 +1785,7 @@ function EducatorView({ levelData, estimatedLevel, nextLevel, nextLevelData, mod
         <div className="space-y-2">
           {levelData.objectives.map((obj, i) => {
             const lvlStat = levelStats[estimatedLevel];
-            const isMaster = lvlStat.total === 0 || (lvlStat.correct / lvlStat.total) >= 0.7;
+            const isMaster = lvlStat.total === 0 || (lvlStat.correct / lvlStat.total) >= PASS_RATE;
             return (
               <div key={i} className={`flex items-center gap-3 p-2.5 rounded-lg border ${isMaster ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
                 {isMaster ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />}
