@@ -1088,7 +1088,7 @@ function IntroScreen({ modules, totalQuestions, gradeGroup, onBack,
         </div>
       </div>
       <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight mb-1.5">
-        A.P.L.U.S<span className="text-red-500"> Level Testing</span>
+        I.E.E. System<span className="text-red-500">: English Assessment</span>
       </h1>
       <p className="text-slate-500 font-medium text-sm mb-1">{SCHOOL_NAME} · {SCHOOL_TAGLINE}</p>
       <p className="text-emerald-600 text-xs font-bold mb-6">五大模組綜合診斷 · 自主作答版</p>
