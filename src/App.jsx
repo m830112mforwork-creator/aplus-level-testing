@@ -20,9 +20,16 @@ import html2canvas from 'html2canvas-pro';
    • 下一級課程預覽 + 招生 CTA
    ═══════════════════════════════════════════════════════════════ */
 
+/* 題庫標記用的級數序列 (Pre-A 不在此列,它是「未達 A 級」的判定結果,沒有對應題目) */
 const LEVELS = ['A', 'P', 'L', 'U', 'S', 'J6'];
 
+/* 未達 A 級門檻時的判定結果 */
+const PRE_A = 'Pre-A';
+
 const LEVEL_INFO = {
+  [PRE_A]: { name: 'Pre-Adventurers', cefr: 'Starter', icon: Sparkles, grade: '英語啟蒙階段',
+        desc: '正在打下英語的第一塊基石,再往前一步就能進入 Level A!',
+        objectives: ['26 字母大小寫認讀與書寫', '基礎字母發音 (Letter Sounds)', '日常問候與自我介紹用語'] },
   A:  { name: 'Adventurers',         cefr: 'Pre-A1', icon: Compass,    grade: '幼稚園 ~ 小一',
         desc: '能聽懂簡單問候,認識基礎單字,掌握 Be 動詞。',
         objectives: ['Subjects (I, You, He, She, It, We, They)', 'Be Verbs (is / am / are)', 'a / an / +s 冠詞與單複數'] },
@@ -88,6 +95,13 @@ const SCHOOL_ADVANTAGES = [
 
 /* ✏️ EDIT 各級數課程亮點 — 用於「下一級預覽」 */
 const COURSE_HIGHLIGHTS = {
+  [PRE_A]: [
+    { label: '字母', text: '完整認讀與書寫 26 個字母的大小寫，建立字母與發音的連結。' },
+    { label: '發音', text: '從字母的基礎發音 (Letter Sounds) 入門，練習聽辨與跟讀，培養敏銳的英語耳朵。' },
+    { label: '單字', text: '透過圖片與情境認識生活中最常見的基礎單字（家庭、動物、顏色、數字）。' },
+    { label: '口說', text: '學會日常問候與自我介紹，建立敢開口說英語的信心。' },
+    { label: '學習目標', text: '打好以上基礎後，即可正式進入 Level A (Adventurers) 的課程。' }
+  ],
   A: [
     { label: '單字', text: '透過自然發音技巧識讀，學習在沒有圖片的情況有效拼寫，訓練拼字邏輯，幫助累積日後單字能力。' },
     { label: '句型', text: '活用初階日常會話，透過多元配對方式，了解英文語言架構。' },
@@ -464,11 +478,12 @@ function computeLevelStats(answers) {
 /* ⭐ 級數估計
    - 通過門檻 80%
    - 題數 < 2 的級數不採計 (避免單題定生死)
-   - 由低到高逐級檢查,只要有一級未達標就停止,最終級數 = 最後一個達標的級數 */
+   - 由低到高逐級檢查,只要有一級未達標就停止,最終級數 = 最後一個達標的級數
+   - 連 A 級都未達標時回傳 Pre-A (預備進入 A 級),避免零基礎與穩定 A 級被判成同一級 */
 const PASS_RATE = 0.8;
 const MIN_ITEMS = 2;
 function estimateLevel(levelStats) {
-  let achieved = 'A';
+  let achieved = PRE_A;
   for (const L of LEVELS) {
     const { correct, total } = levelStats[L];
     if (total < MIN_ITEMS) continue;
@@ -513,6 +528,24 @@ async function loadRecordsFromCloud() {
   return Object.entries(val)
     .map(([id, r]) => ({ id, ...r }))
     .reverse();
+}
+
+/* 取得紀錄的「當地日期」字串 (YYYY-MM-DD),用於日期範圍篩選。
+   新紀錄有標準的 iso 欄位;舊紀錄只有 zh-TW 格式的 ts (例:2026/7/21 23:20:14),需另外解析。 */
+function recordDateKey(r) {
+  if (r.iso) {
+    const d = new Date(r.iso);
+    if (!isNaN(d)) {
+      const p = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    }
+  }
+  const m = String(r.ts || '').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+  if (m) {
+    const p = n => String(n).padStart(2, '0');
+    return `${m[1]}-${p(m[2])}-${p(m[3])}`;
+  }
+  return '';
 }
 
 function exportRecordsCSV(list) {
@@ -581,6 +614,11 @@ function RecordsOverview({ onBack }) {
   const [unlocked, setUnlocked] = useState(false);
   const [status, setStatus] = useState('idle'); // idle | loading | ready | error
   const [records, setRecords] = useState([]);
+  /* 篩選條件 */
+  const [fCampus, setFCampus] = useState('');
+  const [fFrom, setFFrom] = useState('');
+  const [fTo, setFTo] = useState('');
+  const [fName, setFName] = useState('');
   const formatSeconds = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
   const fetchRecords = () => {
@@ -594,19 +632,46 @@ function RecordsOverview({ onBack }) {
     if (unlocked) fetchRecords();
   }, [unlocked]);
 
+  /* 校區選項：以設定的校區為主，並納入紀錄中出現過的其他校區（避免舊資料被漏掉） */
+  const campusOptions = useMemo(() => {
+    const set = new Set(CAMPUS_OPTIONS);
+    records.forEach(r => { if (r.campus) set.add(r.campus); });
+    return [...set];
+  }, [records]);
+
+  const filtered = useMemo(() => {
+    const q = fName.trim().toLowerCase();
+    return records.filter(r => {
+      if (fCampus && r.campus !== fCampus) return false;
+      if (q && !String(r.studentName || '').toLowerCase().includes(q)) return false;
+      if (fFrom || fTo) {
+        const key = recordDateKey(r);
+        if (!key) return false;
+        if (fFrom && key < fFrom) return false;
+        if (fTo && key > fTo) return false;
+      }
+      return true;
+    });
+  }, [records, fCampus, fName, fFrom, fTo]);
+
+  const hasFilter = !!(fCampus || fFrom || fTo || fName.trim());
+  const clearFilters = () => { setFCampus(''); setFFrom(''); setFTo(''); setFName(''); };
+
   if (!unlocked) {
     return <RecordsPasswordGate onBack={onBack} onUnlock={() => setUnlocked(true)} />;
   }
 
   return (
     <div className="flex flex-col h-full overflow-y-auto p-6 sm:p-10">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Users className="w-5 h-5 text-emerald-600" />歷史測驗紀錄總覽
           </h2>
           <p className="text-slate-500 text-sm mt-1">
-            {status === 'ready' && `共 ${records.length} 筆紀錄（來自雲端，所有校區裝置共用）`}
+            {status === 'ready' && (hasFilter
+              ? `符合條件 ${filtered.length} 筆 / 共 ${records.length} 筆`
+              : `共 ${records.length} 筆紀錄（來自雲端，所有校區裝置共用）`)}
             {status === 'loading' && '讀取中...'}
             {status === 'error' && '讀取雲端紀錄失敗，請檢查網路連線'}
           </p>
@@ -616,7 +681,7 @@ function RecordsOverview({ onBack }) {
             className="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-slate-700 rounded-lg font-bold text-sm flex items-center gap-1.5">
             <RefreshCcw className="w-4 h-4" />
           </button>
-          <button onClick={() => exportRecordsCSV(records)}
+          <button onClick={() => exportRecordsCSV(filtered)} title="匯出目前篩選結果"
             className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm flex items-center gap-1.5">
             <FileText className="w-4 h-4" />匯出 CSV
           </button>
@@ -626,6 +691,41 @@ function RecordsOverview({ onBack }) {
           </button>
         </div>
       </div>
+
+      {/* ⭐ 篩選列 */}
+      {status === 'ready' && records.length > 0 && (
+        <div className="mb-4 p-3 bg-stone-50 border border-stone-200 rounded-xl flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">校區</label>
+            <select value={fCampus} onChange={e => setFCampus(e.target.value)}
+              className="px-2.5 py-1.5 bg-white border border-stone-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:border-emerald-400">
+              <option value="">全部校區</option>
+              {campusOptions.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">起始日期</label>
+            <input type="date" value={fFrom} max={fTo || undefined} onChange={e => setFFrom(e.target.value)}
+              className="px-2.5 py-1.5 bg-white border border-stone-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:border-emerald-400" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">結束日期</label>
+            <input type="date" value={fTo} min={fFrom || undefined} onChange={e => setFTo(e.target.value)}
+              className="px-2.5 py-1.5 bg-white border border-stone-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:border-emerald-400" />
+          </div>
+          <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">姓名搜尋</label>
+            <input type="text" value={fName} onChange={e => setFName(e.target.value)} placeholder="輸入學生姓名"
+              className="w-full px-2.5 py-1.5 bg-white border border-stone-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:border-emerald-400" />
+          </div>
+          {hasFilter && (
+            <button onClick={clearFilters}
+              className="px-3 py-1.5 bg-stone-200 hover:bg-stone-300 text-slate-700 rounded-lg font-bold text-xs flex items-center gap-1.5">
+              <XCircle className="w-3.5 h-3.5" />清除篩選
+            </button>
+          )}
+        </div>
+      )}
 
       {status === 'error' ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 gap-2">
@@ -640,6 +740,15 @@ function RecordsOverview({ onBack }) {
         <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 gap-2">
           <Info className="w-10 h-10" />
           <p>目前沒有已保存的測驗紀錄。</p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 gap-3">
+          <Info className="w-10 h-10" />
+          <p>沒有符合篩選條件的紀錄。</p>
+          <button onClick={clearFilters}
+            className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-slate-700 rounded-lg font-bold text-xs">
+            清除篩選
+          </button>
         </div>
       ) : (
         <div className="overflow-x-auto border border-stone-200 rounded-2xl">
@@ -657,7 +766,7 @@ function RecordsOverview({ onBack }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
-              {records.map((r) => (
+              {filtered.map((r) => (
                 <tr key={r.id} className="hover:bg-stone-50">
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{r.ts}</td>
                   <td className="px-4 py-3 text-slate-600">{r.campus || '—'}</td>
@@ -666,7 +775,7 @@ function RecordsOverview({ onBack }) {
                   <td className="px-4 py-3 text-slate-600">{GRADE_PLANS[r.gradeGroup]?.label || r.gradeGroup || '—'}</td>
                   <td className="px-4 py-3">
                     <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold text-xs">
-                      Level {r.level} · {LEVEL_INFO[r.level]?.cefr}
+                      {r.level === PRE_A ? 'Pre-A 預備' : `Level ${r.level}`} · {LEVEL_INFO[r.level]?.cefr}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{r.correct}/{r.total}（{r.accuracy}%）</td>
@@ -921,6 +1030,7 @@ const [gradeGroup, setGradeGroup] = useState('');
     });
     const record = {
       ts: new Date().toLocaleString('zh-TW', { hour12: false }),
+      iso: new Date().toISOString(),   /* 供日期範圍篩選使用 (ts 為地區格式字串,不適合比較) */
       campus, studentName: studentName.trim(), studentGrade: studentGrade.trim(), gradeGroup,
       level: estimateLevel(lvlStats),
       total: finalAnswers.length, correct,
@@ -1544,7 +1654,9 @@ function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElaps
               <h1 className="text-6xl sm:text-7xl font-black mb-5 tracking-tighter">{levelData.cefr}</h1>
               <div className="bg-white/10 p-4 rounded-xl backdrop-blur-sm border border-white/20">
                 <p className="text-emerald-50 uppercase tracking-widest text-[10px] font-bold mb-1">A.P.L.U.S 對標</p>
-                <h3 className="text-xl font-bold">Level {estimatedLevel}</h3>
+                <h3 className="text-xl font-bold">
+                  {estimatedLevel === PRE_A ? 'Pre-A 預備階段' : `Level ${estimatedLevel}`}
+                </h3>
                 <p className="text-emerald-100/90 text-xs mt-1.5">{levelData.name}</p>
                 <p className="text-emerald-50/70 text-[11px] mt-1">適合年級:{levelData.grade}</p>
               </div>
@@ -1609,7 +1721,11 @@ function StudentView({ modules = MODULES, levelData, estimatedLevel, moduleStats
           <Star className="w-5 h-5" fill="currentColor" />恭喜完成測驗!
         </h3>
         <p className="text-emerald-50 text-sm leading-relaxed">
-          你目前的程度是 <strong>Level {estimatedLevel} ({levelData.cefr})</strong> — {levelData.name}!{levelData.desc}
+          {estimatedLevel === PRE_A ? (
+            <>你目前在 <strong>Pre-A 預備階段</strong> — {levelData.name}!{levelData.desc}</>
+          ) : (
+            <>你目前的程度是 <strong>Level {estimatedLevel} ({levelData.cefr})</strong> — {levelData.name}!{levelData.desc}</>
+          )}
         </p>
       </div>
 
@@ -1634,7 +1750,9 @@ function StudentView({ modules = MODULES, levelData, estimatedLevel, moduleStats
           <div className="relative z-10">
             <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1">YOUR NEXT STEP</p>
             <h3 className="text-lg sm:text-xl font-black text-amber-900 mb-2">
-              🎓 接下來,在 Level {estimatedLevel} 你會學到
+              {estimatedLevel === PRE_A
+                ? '🎓 接下來,你將預備進入 Level A'
+                : `🎓 接下來,在 Level ${estimatedLevel} 你會學到`}
             </h3>
             <p className="text-amber-800/90 text-sm mb-4">
               <strong>{levelData.name}</strong> ({levelData.cefr}) · 適合 {levelData.grade} · {levelData.desc}
@@ -1818,6 +1936,14 @@ function EducatorView({ levelData, estimatedLevel, nextLevel, nextLevelData, mod
         <h3 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-emerald-600" />六級達成度概覽
         </h3>
+        {estimatedLevel === PRE_A && (
+          <div className="mb-3 p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-800 leading-relaxed">
+              本次判定為 <strong>Pre-A 預備階段</strong>：Level A 未達 {Math.round(PASS_RATE * 100)}% 門檻,因此下列各級皆未標記為當前級數。
+            </p>
+          </div>
+        )}
         <div className="space-y-2">
           {LEVELS.map(L => {
             const { correct, total } = levelStats[L];
@@ -1851,13 +1977,18 @@ function EducatorView({ levelData, estimatedLevel, nextLevel, nextLevelData, mod
       {/* 學習目標達成 */}
       <div className="bg-white p-5 sm:p-6 rounded-2xl border border-stone-100">
         <h3 className="text-base font-bold text-slate-800 mb-1 flex items-center gap-2">
-          <Target className="w-4 h-4 text-emerald-600" />Level {estimatedLevel} 學習目標達成
+          <Target className="w-4 h-4 text-emerald-600" />
+          {estimatedLevel === PRE_A ? '進入 Level A 前的預備目標' : `Level ${estimatedLevel} 學習目標達成`}
         </h3>
-        <p className="text-xs text-slate-500 mb-4">基於本級實際作答表現估計</p>
+        <p className="text-xs text-slate-500 mb-4">
+          {estimatedLevel === PRE_A ? '尚未達 Level A 門檻,以下為建議優先建立的基礎能力' : '基於本級實際作答表現估計'}
+        </p>
         <div className="space-y-2">
           {levelData.objectives.map((obj, i) => {
-            const lvlStat = levelStats[estimatedLevel];
-            const isMaster = lvlStat.total === 0 || (lvlStat.correct / lvlStat.total) >= PASS_RATE;
+            const lvlStat = levelStats[estimatedLevel] || { correct: 0, total: 0 };
+            /* Pre-A 的 objectives 是「進入 A 級前要建立的能力」,一律標記為需加強 */
+            const isMaster = estimatedLevel !== PRE_A &&
+              (lvlStat.total === 0 || (lvlStat.correct / lvlStat.total) >= PASS_RATE);
             return (
               <div key={i} className={`flex items-center gap-3 p-2.5 rounded-lg border ${isMaster ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
                 {isMaster ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />}
