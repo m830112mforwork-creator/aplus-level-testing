@@ -26,10 +26,14 @@ const LEVELS = ['A', 'P', 'L', 'U', 'S', 'J6'];
 /* 未達 A 級門檻時的判定結果 */
 const PRE_A = 'Pre-A';
 
+/* 判定級數 → 接下來要就讀的級數。
+   Pre-A 的學生下一步就是進入 Level A,因此課程重點與級數說明一律沿用 Level A,不另立一套內容。 */
+const studyLevelOf = (level) => (level === PRE_A ? 'A' : level);
+
 const LEVEL_INFO = {
+  /* Pre-A 僅用於呈現「判定結果」本身;課程內容一律取 Level A */
   [PRE_A]: { name: 'Pre-Adventurers', cefr: 'Starter', icon: Sparkles, grade: '英語啟蒙階段',
-        desc: '正在打下英語的第一塊基石,再往前一步就能進入 Level A!',
-        objectives: ['26 字母大小寫認讀與書寫', '基礎字母發音 (Letter Sounds)', '日常問候與自我介紹用語'] },
+        desc: '正在打下英語的第一塊基石,再往前一步就能進入 Level A!' },
   A:  { name: 'Adventurers',         cefr: 'Pre-A1', icon: Compass,    grade: '幼稚園 ~ 小一',
         desc: '能聽懂簡單問候,認識基礎單字,掌握 Be 動詞。',
         objectives: ['Subjects (I, You, He, She, It, We, They)', 'Be Verbs (is / am / are)', 'a / an / +s 冠詞與單複數'] },
@@ -93,47 +97,52 @@ const SCHOOL_ADVANTAGES = [
     desc: '從打招呼擁抱開始建立信任,Ms./Mr. 尊師文化培養禮貌,老師主動避免讓話題中斷,讓孩子在零焦慮的環境中建立英語自信。' }
 ];
 
-/* ✏️ EDIT 各級數課程亮點 — 用於「下一級預覽」 */
+/* ✏️ EDIT 各級數課程組成 (取自《各級數學習規劃》) — J6 未列於該文件,故不提供 */
+const COURSE_MODULES = {
+  A: ['A.P.O. 單字 & 句型', 'A.P.O. Grammar 文法', 'Phonics & Reading', 'Speaking 口說'],
+  P: ['A.P.O. 單字 & 句型', 'A.P.O. Grammar 文法', 'Phonics & Reading', 'Speaking 口說'],
+  L: ['A.P.O. 單字 & 句型', 'A.P.O. Grammar 文法', 'Phonics & Reading', 'Speaking 口說'],
+  U: ['H.H.H.', 'Simply Grammar 4', 'KK 音標 & Reading', 'Speaking 口說'],
+  S: ['GEPT 全民英檢 (單字/句型/片語/口說)', 'KK 音標', 'Part of Speech 詞性', 'Reading 閱讀', 'Speaking 口說']
+};
+
+/* ✏️ EDIT 各級數課程亮點 — 用於「下一級預覽」
+   註:Pre-A 沒有獨立內容,判定為 Pre-A 的學生一律顯示 Level A 的課程重點 (見 studyLevelOf) */
 const COURSE_HIGHLIGHTS = {
-  [PRE_A]: [
-    { label: '字母', text: '完整認讀與書寫 26 個字母的大小寫，建立字母與發音的連結。' },
-    { label: '發音', text: '從字母的基礎發音 (Letter Sounds) 入門，練習聽辨與跟讀，培養敏銳的英語耳朵。' },
-    { label: '單字', text: '透過圖片與情境認識生活中最常見的基礎單字（家庭、動物、顏色、數字）。' },
-    { label: '口說', text: '學會日常問候與自我介紹，建立敢開口說英語的信心。' },
-    { label: '學習目標', text: '打好以上基礎後，即可正式進入 Level A (Adventurers) 的課程。' }
-  ],
   A: [
-    { label: '單字', text: '透過自然發音技巧識讀，學習在沒有圖片的情況有效拼寫，訓練拼字邏輯，幫助累積日後單字能力。' },
-    { label: '句型', text: '活用初階日常會話，透過多元配對方式，了解英文語言架構。' },
-    { label: '口說', text: '學習英語正確口音和語調，提升說話的聲量與信心，透過流行歌曲學習口語表達。' },
-    { label: '文法', text: '學習英文最常見的文法觀念，以情境式理解文法。' },
-    { label: '發音與閱讀', text: '透過基礎發音規則，學習認讀以及拼寫，體驗自主完成初階文章閱讀。' }
+    { label: '單字', text: '單字與句型建構的黃金期。以 A.P.O. 耶加原創教材識讀與拼寫，同步建立同義字／反義字的邏輯，並融入外國文化與 E 世代用語（scan the QR code、erasable pen、pencil lead）。' },
+    { label: '句型', text: '三大類句型完整建立：Yes / No 問答、單複數句型、助動詞問答。例如 Is it a / an ___? → Yes, it is. / No, it isn’t.，並延伸到能表達個人想法的多元對話。' },
+    { label: '文法', text: 'Article 定冠詞 (a / an / the)、Singular and Plural Nouns 單複數名詞、Subject Pronouns 主詞代名詞搭配 Be 動詞、縮寫 (I am → I’m)、can 助動詞 + 原形動詞。以連載漫畫與耶加原創文法口訣（唱誦＋手勢）記憶，不必死背公式。' },
+    { label: '發音', text: '耶加獨創 PPS 學習法 (Phonics / Pronunciation / Spelling)，用顏色分類記憶發音：Aa–Zz 26 字母發音、短母音 (a, e, i, o, u) 與長母音 (a_e, e_e, i_e, o_e, u_e) 嘴型矯正、易混淆組合比較 (k vs. qu、ch vs. sh、t vs. th、f vs. ph)，並搭配格線訓練精準的書寫習慣。' },
+    { label: '閱讀', text: '從生活題材入門（開箱書包、文具店偷竊案筆錄、速食店點餐、動物園日記），用發音技巧拼讀未學過的單字，同時複習同級的文法概念，建立獨立閱讀英文文章的能力。' },
+    { label: '口說', text: '重視語調、發音、尾音與連音，搭配耶加專屬 intonation 語調符號；並有耶加文化特色的 Outdoor Sentence 戶外英文，讓孩子自信地在教室外開口說英語。' }
   ],
   P: [
     { label: '單字', text: '透過中階自然發音概念，學習較長單字，對識讀有更佳的反應，聽寫亦有更紮實的訓練。' },
     { label: '句型', text: '融合三單等較有變化的句型，讓學生在生活活用。' },
     { label: '口說', text: '提升生活會話的反應能力，確實將課程逐步帶入生活對話。' },
     { label: '文法', text: '逐步接觸較需邏輯思考的文法觀念，用淺顯易懂的方式理解，並紮實運用於生活。' },
-    { label: '發音與閱讀', text: '學習中階自然發音規則，並套用於認讀以及拼寫，開始接觸簡單國際新聞，提升完成自主閱讀文章的能力。' }
+    { label: '發音與閱讀', text: '進入多重母音 (a_e、ai、ay) 的中階自然發音規則，並套用於認讀以及拼寫，開始接觸簡單國際新聞，提升完成自主閱讀文章的能力。' }
   ],
   L: [
     { label: '單字', text: '接觸長篇幅單字，具備良好記憶力和拼寫能力。' },
     { label: '句型', text: '逐步學習具有時態觀念的句型，並融合過去較有變化句型，對英文常見問句形式有正確的認識，並做出合適回應。' },
     { label: '口說', text: '通過真實情境，熟悉多元化的問句模式，如：自主旅行的時刻表、在機場的臨場表達等。' },
     { label: '文法', text: '完整學習英文的各種問句句型，並漸漸帶入時態觀念。' },
-    { label: '發音與閱讀', text: '透過進階發音規則，學習認讀以及拼寫。閱讀量提升，增進完成初階文章閱讀能力，挑戰閱讀時事文章、科學、看板、海報等真實英文。' }
+    { label: '發音與閱讀', text: '進入多音節發音 (air、ear) 的進階規則，學習認讀以及拼寫。閱讀量提升，增進完成初階文章閱讀能力，挑戰閱讀時事文章、科學、看板、海報等真實英文。' }
   ],
   U: [
     { label: '單字', text: '大幅提升單字篇幅和份量，完整容納國中三年的單字難度，以及背誦能力訓練。' },
     { label: '句型', text: '紮實熟悉過去式時態，且能活用各種時態，提升句型的精緻度以及水平。' },
     { label: '口說', text: '通過真實情境，如訂房等，熟悉多元化的問句模式，透過不同時態，提升靈活表述意見的能力。' },
     { label: '文法', text: '活用英文三態，把握精準的文法認知，奠定國中三年所需的文法概念。' },
-    { label: 'KK音標及閱讀', text: '從自然發音進到 KK 音標世界，提升自主閱讀能力，大量認知世界趨勢，閱讀時事文章、科普文章、看板、海報等真實英文。' }
+    { label: 'KK音標及閱讀', text: '歷經 A～L 級逐層累積的自然發音基礎後，正式進到 KK 音標世界，因此不會被音標符號混淆。提升自主閱讀能力，大量認知世界趨勢，閱讀時事文章、科普文章、看板、海報等真實英文。' }
   ],
   S: [
     { label: '單字', text: '大量接觸英檢單字及片語，做好基礎英檢訓練，熟悉會考及國內外具有公正效力的英檢學習。' },
     { label: '句型', text: '能理解艱深的英文句型，紮實學習完成式、關代、被動語態等關鍵英文文法。' },
-    { label: '口說與閱讀', text: '進行檢定型的口語訓練，加速口語臨場反應，學習精準表述意見。' },
+    { label: '詞性與片語', text: '進階學習 Part of Speech 詞性判讀 (n. 名詞 / v. 動詞 / adj. 形容詞 / adv. 副詞) 與英語片語運用（例：Be about to 即將 — The bus is about to come.）。' },
+    { label: '口說與閱讀', text: '進行檢定型的口語訓練，加速口語臨場反應，學習精準表述意見；並引導辨別各國英文口音的差異，結合科技與國際時事議題。' },
     { label: '文法', text: '活用英文三態，學習現在完成式等較複雜文法，把握精準的文法認知，奠定國中三年所需的文法概念。' },
     { label: '閱讀', text: '帶領學生閱讀進階科普文章、社會時事、國際新聞，具備探討世界趨勢及國際議題能力。' }
   ],
@@ -1710,7 +1719,10 @@ function Stat({ icon: Icon, value, label, color }) {
    學生視角 — 鼓勵 + 下一級預覽 + 學校優勢 + CTA
    ═══════════════════════════════════════════════════════════════ */
 function StudentView({ modules = MODULES, levelData, estimatedLevel, moduleStats, mistakes }) {
-  const currentHighlights = COURSE_HIGHLIGHTS[estimatedLevel] || [];
+  /* 接下來要就讀的級數 (Pre-A → Level A);「下一步」卡片一律呈現該級的說明與課程重點 */
+  const studyLevel = studyLevelOf(estimatedLevel);
+  const studyInfo = LEVEL_INFO[studyLevel];
+  const currentHighlights = COURSE_HIGHLIGHTS[studyLevel] || [];
 
   return (
     <div className="flex flex-col gap-5">
@@ -1751,12 +1763,24 @@ function StudentView({ modules = MODULES, levelData, estimatedLevel, moduleStats
             <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1">YOUR NEXT STEP</p>
             <h3 className="text-lg sm:text-xl font-black text-amber-900 mb-2">
               {estimatedLevel === PRE_A
-                ? '🎓 接下來,你將預備進入 Level A'
-                : `🎓 接下來,在 Level ${estimatedLevel} 你會學到`}
+                ? '🎓 接下來,你將預備進入 Level A,你會學到'
+                : `🎓 接下來,在 Level ${studyLevel} 你會學到`}
             </h3>
-            <p className="text-amber-800/90 text-sm mb-4">
-              <strong>{levelData.name}</strong> ({levelData.cefr}) · 適合 {levelData.grade} · {levelData.desc}
+            <p className="text-amber-800/90 text-sm mb-3">
+              <strong>{studyInfo.name}</strong> ({studyInfo.cefr}) · 適合 {studyInfo.grade} · {studyInfo.desc}
             </p>
+            {(COURSE_MODULES[studyLevel] || []).length > 0 && (
+              <div className="mb-4">
+                <p className="text-[10px] font-black text-amber-700 uppercase tracking-wider mb-1.5">本級課程組成</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {COURSE_MODULES[studyLevel].map(m => (
+                    <span key={m} className="text-[11px] font-bold text-amber-900 bg-amber-100 border border-amber-300 rounded-md px-2 py-0.5">
+                      {m}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="bg-white/70 backdrop-blur-sm border border-amber-200 rounded-xl p-4">
               <p className="text-xs font-black text-amber-700 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
                 <BookMarked className="w-3.5 h-3.5" />課程重點
@@ -1913,6 +1937,8 @@ function ReviewCard({ mistake, index }) {
    教育者視角 — 教學藍圖 + 各級達成度
    ═══════════════════════════════════════════════════════════════ */
 function EducatorView({ levelData, estimatedLevel, nextLevel, nextLevelData, moduleStats, levelStats, mistakes, answers }) {
+  /* 接下來要就讀的級數 (Pre-A → Level A) */
+  const studyLevel = studyLevelOf(estimatedLevel);
   const conceptFreq = useMemo(() => {
     const map = {};
     mistakes.forEach(m => { map[m.concept] = (map[m.concept] || 0) + 1; });
@@ -1978,15 +2004,17 @@ function EducatorView({ levelData, estimatedLevel, nextLevel, nextLevelData, mod
       <div className="bg-white p-5 sm:p-6 rounded-2xl border border-stone-100">
         <h3 className="text-base font-bold text-slate-800 mb-1 flex items-center gap-2">
           <Target className="w-4 h-4 text-emerald-600" />
-          {estimatedLevel === PRE_A ? '進入 Level A 前的預備目標' : `Level ${estimatedLevel} 學習目標達成`}
+          Level {studyLevel} 學習目標{estimatedLevel === PRE_A ? '' : '達成'}
         </h3>
         <p className="text-xs text-slate-500 mb-4">
-          {estimatedLevel === PRE_A ? '尚未達 Level A 門檻,以下為建議優先建立的基礎能力' : '基於本級實際作答表現估計'}
+          {estimatedLevel === PRE_A
+            ? `Level A 未達 ${Math.round(PASS_RATE * 100)}% 門檻,以下為接下來需優先建立的能力`
+            : '基於本級實際作答表現估計'}
         </p>
         <div className="space-y-2">
-          {levelData.objectives.map((obj, i) => {
+          {(LEVEL_INFO[studyLevel]?.objectives || []).map((obj, i) => {
             const lvlStat = levelStats[estimatedLevel] || { correct: 0, total: 0 };
-            /* Pre-A 的 objectives 是「進入 A 級前要建立的能力」,一律標記為需加強 */
+            /* Pre-A 尚未達 A 級,其 A 級學習目標一律標記為需加強 */
             const isMaster = estimatedLevel !== PRE_A &&
               (lvlStat.total === 0 || (lvlStat.correct / lvlStat.total) >= PASS_RATE);
             return (
