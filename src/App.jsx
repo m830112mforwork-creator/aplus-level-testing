@@ -155,6 +155,75 @@ const COURSE_HIGHLIGHTS = {
 };
 
 /* ════════════════════════════════════════════════════════════════
+   ⭐ 教育顧問介紹用資料 — 取自《A Plus 教育顧問培訓手冊》2026 版
+   ✏️ EDIT 這區的文字都可以依實際話術調整
+   ═══════════════════════════════════════════════════════════════ */
+
+/* 五大核心課程 (A.P.L.U.S 級每週 5 小時,每堂 60 分鐘) */
+const CORE_COURSES = [
+  'Vocabulary & Phrases + Sentence Structure — 字彙、片語、句型',
+  'Speaking Skills — 口說與情境表達',
+  'Grammar Usage — 文法概念與運用',
+  'Phonics & Reading — 發音規則與閱讀理解',
+  'English Library Time — 自主學習任務'
+];
+
+/* 各能力的「代表意義」與「對應課程」— 依表現好壞給不同解讀 */
+const SKILL_CONSULT = {
+  Phonics:    { course: 'Phonics & Reading 課',
+                strong: '已有自然發音基礎,看字就能拼出音',
+                weak:   '自然發音規則尚未建立,需要從發音工具入門' },
+  Spelling:   { course: 'Phonics & Reading 課 ＋ Voc. & Phrases 課',
+                strong: '拼字邏輯清楚,能對應發音正確書寫',
+                weak:   '拼字邏輯與記憶方法需要系統訓練' },
+  Vocabulary: { course: 'Voc. & Phrases 課',
+                strong: '常見字彙認識度良好,語意判斷準確',
+                weak:   '字彙量還在累積階段,需要大量情境輸入' },
+  Reading:    { course: 'Phonics & Reading 課',
+                strong: '文字理解與邏輯推理能力強',
+                weak:   '長句與段落理解需要更多閱讀練習' },
+  Grammar:    { course: 'Grammar Usage 課',
+                strong: '文法概念清楚,能正確判斷句型結構',
+                weak:   '文法概念尚未系統建立(未受訓練前屬正常)' }
+};
+
+/* 需要對家長「正常化」的能力 — 避免家長誤以為孩子有問題 */
+const NORMALIZE_NOTE = {
+  Grammar: '文法題涵蓋 A 級到國中銜接的全範圍,沒有受過系統訓練的孩子得分偏低是正常現象,這正是 Grammar Usage 課要補足的部分。',
+  Spelling: '拼字需要發音規則搭配記憶方法,尚未系統學過自然發音的孩子這裡通常較弱,課程會從發音工具開始建立。'
+};
+
+/* PART 4 常見家長問題 */
+const CONSULT_FAQ = [
+  { q: '正確率只有 4 成,是不是很差?',
+    a: '這個測驗涵蓋從小一到國中的所有題型,目的是找出孩子「目前最適合的起點」,不是要考倒孩子。這個分數剛好對應到推薦的級數,是我們安排課程的依據,非常準確。' },
+  { q: '文法分數很低,是不是文法很差?',
+    a: '文法題從 A 級一路考到國中程度,沒有受過系統訓練的孩子分數偏低非常正常。我們課程從 Be 動詞開始,一步一步把基礎蓋好,不用擔心。' },
+  { q: '為什麼不從更高的班開始上?',
+    a: '報告可以看到孩子在某些面向還有明顯缺口。直接跳高,孩子容易因為跟不上而失去信心。從推薦級數開始能在最短時間補紮實基礎,之後升級的速度反而更快,也更有成就感。' },
+  { q: '一週要上幾次?每堂多久?',
+    a: 'A.P.L.U.S 級每週共 5 小時,分成 5 堂核心課程,每堂 60 分鐘。我們可以依照孩子的學校行程安排最適合的時段。' },
+  { q: 'English Library Time 是上什麼?會不會只是放著不管?',
+    a: 'Library Time 是耶加自主設計的任務學習課程,每學期有 20 個任務,包含英語繪本、科學實驗、主題影片等,都是老師依孩子程度精挑的內容。每個任務完成後有學習單,家長可以清楚看到孩子學了什麼。' },
+  { q: '幾個月可以升一個 Level?',
+    a: '每兩個月會有一次 Level-up Evaluations 進階考。通過就升階,未通過則繼續夯實當前 Level,確保每個孩子都是「真正學會了再往前走」。' },
+  { q: '課程教材怎麼發放?要另外買嗎?',
+    a: '每學年 9 月開學時發放當年級全套教材,包含 Communication Book、Quiz Book、Writing Book 和各科核心教材。詳細費用請洽現場顧問。' }
+];
+
+/* PART 6-3 介紹後自我檢核 */
+const CONSULT_CHECKLIST = [
+  '有肯定孩子完成測驗',
+  '說明了整體成績(答對題數、正確率)',
+  '解讀了五大能力,強弱項都提到',
+  '弱項有做「正常化」說明',
+  '清楚說明了推薦的 Level 和班名',
+  '說明了課程如何補強孩子的弱項',
+  '描繪了學習路徑(現在 Level → 下一目標)',
+  '用二擇一引導預約試聽'
+];
+
+/* ════════════════════════════════════════════════════════════════
    題庫 (5 模組)
    ═══════════════════════════════════════════════════════════════ */
 const PHONICS_QUESTIONS = [
@@ -1908,6 +1977,10 @@ function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElaps
               className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition ${view === 'educator' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500'}`}>
               <GraduationCap className="w-3 h-3" /><span className="hidden sm:inline">教育者</span>
             </button>
+            <button onClick={() => setView('consultant')}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition ${view === 'consultant' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500'}`}>
+              <Users className="w-3 h-3" /><span className="hidden sm:inline">顧問</span>
+            </button>
           </div>
           <button onClick={() => playClip('complete')} title="再聽一次語音" aria-label="再聽一次語音"
             className="px-1 rounded-lg active:scale-95 transition-transform">
@@ -1958,19 +2031,28 @@ function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElaps
 
         {/* 右側 */}
         <div className="lg:col-span-8">
-          {view === 'student' ? (
+          {view === 'student' && (
             <StudentView
               modules={modules}
               levelData={levelData} estimatedLevel={estimatedLevel}
               nextLevel={nextLevel} nextLevelData={nextLevelData}
               moduleStats={moduleStats} mistakes={mistakes}
             />
-          ) : (
+          )}
+          {view === 'educator' && (
             <EducatorView
               levelData={levelData} estimatedLevel={estimatedLevel}
               nextLevel={nextLevel} nextLevelData={nextLevelData}
               moduleStats={moduleStats} levelStats={levelStats}
               mistakes={mistakes} answers={answers}
+            />
+          )}
+          {view === 'consultant' && (
+            <ConsultantView
+              levelData={levelData} estimatedLevel={estimatedLevel}
+              moduleStats={moduleStats} studentName={studentName}
+              totalCorrect={totalCorrect} totalAnswered={totalAnswered}
+              overallAccuracy={overallAccuracy} timeElapsed={timeElapsed}
             />
           )}
         </div>
@@ -2203,6 +2285,308 @@ function ReviewCard({ mistake, index }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* 能力表現分級 — 與 SkillBar 共用同一組門檻,避免兩處說法不一致 */
+function skillTier(pct, total) {
+  if (!total) return { label: '尚未測試', tone: 'stone', strong: false };
+  if (pct >= 80) return { label: '表現極佳', tone: 'emerald', strong: true };
+  if (pct >= 60) return { label: '基礎扎實', tone: 'sky',     strong: true };
+  if (pct >= 40) return { label: '需要練習', tone: 'amber',   strong: false };
+  return              { label: '建議加強', tone: 'rose',    strong: false };
+}
+
+/* 顧問報表的步驟外框 */
+function ConsultStep({ n, title, hint, children }) {
+  return (
+    <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+      <div className="flex items-start gap-2.5 px-4 py-3 bg-stone-50 border-b border-stone-200">
+        <span className="w-6 h-6 shrink-0 rounded-full bg-slate-800 text-white text-xs font-black flex items-center justify-center">{n}</span>
+        <div>
+          <h3 className="font-bold text-slate-800 text-sm leading-tight">{title}</h3>
+          {hint && <p className="text-[11px] text-slate-500 mt-0.5">{hint}</p>}
+        </div>
+      </div>
+      <div className="p-4">{children}</div>
+    </div>
+  );
+}
+
+/* 顧問要照著唸的話術框 */
+function Script({ children }) {
+  return (
+    <div className="bg-emerald-50 border-l-4 border-emerald-400 rounded-r-xl p-3.5">
+      <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1.5">顧問說</p>
+      <p className="text-sm text-slate-800 leading-relaxed">{children}</p>
+    </div>
+  );
+}
+
+/* 手冊裡的「話術提醒」 */
+function Tip({ children }) {
+  return (
+    <div className="mt-2.5 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
+      <Lightbulb className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+      <p className="text-[11.5px] text-amber-900 leading-relaxed">{children}</p>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ⭐ 教育顧問視角 — 依《教育顧問培訓手冊》六步驟編排,
+   話術中的空格已自動帶入該學生的實際測驗數據,顧問可直接照著介紹。
+   ═══════════════════════════════════════════════════════════════ */
+function ConsultantView({ levelData, estimatedLevel, moduleStats, studentName,
+                          totalCorrect, totalAnswered, overallAccuracy, timeElapsed }) {
+  const who = studentName?.trim() || '這位同學';
+  const studyLevel = studyLevelOf(estimatedLevel);
+  const studyInfo = LEVEL_INFO[studyLevel];
+  const minutes = Math.max(1, Math.round(timeElapsed / 60));
+
+  /* 下一個目標要以「即將就讀的級數」往後推,不能用 estimatedLevel —
+     否則 Pre-A 學生的起點與目標會同時算出 Level A */
+  const studyIdx = LEVELS.indexOf(studyLevel);
+  const isTopLevel = studyIdx >= LEVELS.length - 1;
+  const targetLevel = isTopLevel ? studyLevel : LEVELS[studyIdx + 1];
+  const targetInfo = LEVEL_INFO[targetLevel];
+
+  /* 五大能力:依表現由高到低排序,確保「先說強項、後說弱項」 */
+  const skills = useMemo(() => Object.keys(SKILL_TAGS).map(s => {
+    const st = moduleStats[s.toLowerCase()] || { correct: 0, total: 0 };
+    const pct = st.total ? Math.round(st.correct / st.total * 100) : 0;
+    return { skill: s, ...st, pct, tier: skillTier(pct, st.total),
+             label: SKILL_TAGS[s].label, consult: SKILL_CONSULT[s] };
+  }).sort((a, b) => b.pct - a.pct), [moduleStats]);
+
+  const strengths = skills.filter(s => s.tier.strong);
+  const weaks = skills.filter(s => s.total > 0 && !s.tier.strong);
+  const topWeak = weaks.slice(-2).reverse();          /* 最需補強的兩項 */
+  const normalizeItems = weaks.filter(s => NORMALIZE_NOTE[s.skill]);
+
+  const toneCls = {
+    emerald: 'bg-emerald-100 text-emerald-700', sky: 'bg-sky-100 text-sky-700',
+    amber: 'bg-amber-100 text-amber-700', rose: 'bg-rose-100 text-rose-800',
+    stone: 'bg-stone-100 text-slate-500'
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-2xl flex items-start gap-3">
+        <Users className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+        <div>
+          <h4 className="text-indigo-900 font-bold text-sm mb-1">教育顧問介紹報表</h4>
+          <p className="text-indigo-700/90 text-xs leading-relaxed">
+            依《教育顧問培訓手冊》六步驟編排,話術中的數據已自動帶入 {who} 的實際結果,可直接照著向家長介紹。
+          </p>
+        </div>
+      </div>
+
+      {/* STEP 1 */}
+      <ConsultStep n="1" title="開場 — 肯定孩子完成測驗" hint="先讓家長放鬆,也讓孩子感到被肯定">
+        <Script>
+          恭喜 <strong>{who}</strong> 完成了這次的程度測驗!我們一起來看看測驗結果,
+          了解 TA 目前的英語能力,和接下來最適合的學習方向。
+        </Script>
+        <Tip>開場以「恭喜完成」為主軸。不要說「先看看考了幾分」,避免家長直覺進入評分模式。</Tip>
+      </ConsultStep>
+
+      {/* STEP 2 */}
+      <ConsultStep n="2" title="說明整體成績 — 建立正確期待" hint="先點亮亮點,再帶出程度定位">
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          {[['答對題數', `${totalCorrect} / ${totalAnswered}`], ['正確率', `${overallAccuracy}%`], ['用時', `約 ${minutes} 分鐘`]]
+            .map(([k, v]) => (
+              <div key={k} className="bg-stone-50 border border-stone-200 rounded-xl p-2.5 text-center">
+                <div className="text-base font-black text-slate-800">{v}</div>
+                <div className="text-[10px] text-slate-500 font-bold mt-0.5">{k}</div>
+              </div>
+            ))}
+        </div>
+        <Script>
+          這次測驗共答對 <strong>{totalCorrect}</strong> 題,正確率 <strong>{overallAccuracy}%</strong>,
+          用時大約 <strong>{minutes}</strong> 分鐘。
+          {strengths.length > 0 && <>其中 <strong>{strengths[0].label}</strong> 的表現特別好,答對 {strengths[0].correct}/{strengths[0].total}。</>}
+          {' '}根據結果,TA 目前對應到國際標準 CEFR 的「<strong>{levelData.cefr}</strong>」等級,
+          在我們 A.P.L.U.S 系統裡對標的是「<strong>{estimatedLevel === PRE_A ? 'Pre-A 預備階段' : `Level ${estimatedLevel} — ${levelData.name}`}</strong>」,
+          這個級數最適合 <strong>{levelData.grade}</strong> 的孩子。
+        </Script>
+        <Tip>先說成績的亮點(例如「速度很快」或「閱讀表現很好」),再帶出程度定位,家長感受會截然不同。</Tip>
+      </ConsultStep>
+
+      {/* STEP 3 */}
+      <ConsultStep n="3" title="解讀五大能力 — 亮點先說,弱項正常化" hint="下表已依表現由高到低排序,由上往下唸即可">
+        <div className="overflow-x-auto border border-stone-200 rounded-xl mb-3">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-stone-50 text-slate-500 text-[10px] uppercase tracking-wider">
+              <tr>
+                <th className="px-3 py-2">能力</th><th className="px-3 py-2">分數</th>
+                <th className="px-3 py-2">評語</th><th className="px-3 py-2">代表意義</th>
+                <th className="px-3 py-2">課程對應</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {skills.map(s => (
+                <tr key={s.skill}>
+                  <td className="px-3 py-2.5 font-bold text-slate-800 whitespace-nowrap">{s.skill} {s.label}</td>
+                  <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{s.correct} / {s.total}</td>
+                  <td className="px-3 py-2.5">
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold whitespace-nowrap ${toneCls[s.tier.tone]}`}>
+                      {s.tier.label}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-slate-600 text-[12.5px]">
+                    {s.total === 0 ? '本次未測到此能力' : s.tier.strong ? s.consult.strong : s.consult.weak}
+                  </td>
+                  <td className="px-3 py-2.5 text-slate-500 text-[11.5px]">{s.consult.course}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <Script>
+          我們來看五個面向的表現。
+          {strengths.length > 0
+            ? <>TA 的「<strong>{strengths[0].label}</strong>」表現很好,答對 {strengths[0].correct}/{strengths[0].total},
+                {strengths[0].consult.strong}!
+                {strengths[1] && <>「{strengths[1].label}」也有一定基礎,拿到 {strengths[1].correct}/{strengths[1].total}。</>}</>
+            : <>這次每個面向都還在建立基礎的階段,這正是課程要幫 TA 打底的地方。</>}
+          {topWeak.length > 0 && <>{' '}需要特別加強的是
+            「<strong>{topWeak.map(w => `${w.label} ${w.correct}/${w.total}`).join('」和「')}</strong>」。</>}
+        </Script>
+        {normalizeItems.length > 0 && (
+          <div className="mt-2.5 space-y-2">
+            {normalizeItems.map(s => (
+              <div key={s.skill} className="flex items-start gap-2 bg-sky-50 border border-sky-200 rounded-xl p-2.5">
+                <Heart className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
+                <p className="text-[11.5px] text-sky-900 leading-relaxed">
+                  <strong>{s.label}要正常化：</strong>{NORMALIZE_NOTE[s.skill]}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+        <Tip>弱項一定要「正常化」,讓家長知道這是課程設計要補足的地方,而不是孩子的問題。</Tip>
+      </ConsultStep>
+
+      {/* STEP 4 */}
+      <ConsultStep n="4" title="說明推薦班級 — 現在的起點 × 下一個目標" hint="讓家長看到成長藍圖,而不是弱點清單">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="flex-1 bg-emerald-50 border-2 border-emerald-300 rounded-xl p-3 text-center">
+            <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider mb-0.5">現在的起點</p>
+            <p className="font-black text-emerald-900">Level {studyLevel} — {studyInfo.name}</p>
+            <p className="text-[11px] text-emerald-700 mt-0.5">{studyInfo.cefr} · 適合 {studyInfo.grade}</p>
+          </div>
+          <ArrowRight className="w-5 h-5 text-slate-400 shrink-0" />
+          <div className="flex-1 bg-stone-50 border-2 border-stone-200 rounded-xl p-3 text-center">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5">下一個目標</p>
+            {isTopLevel ? (
+              <>
+                <p className="font-black text-slate-700">已在最高級數</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">往 Level-up 進階考與國中銜接邁進</p>
+              </>
+            ) : (
+              <>
+                <p className="font-black text-slate-700">Level {targetLevel} — {targetInfo.name}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{targetInfo.cefr} · 適合 {targetInfo.grade}</p>
+              </>
+            )}
+          </div>
+        </div>
+        <Script>
+          根據這份報告,我們建議 TA 從「<strong>Level {studyLevel} — {studyInfo.name}</strong>」開始學習。
+          這個班正好在建立「{studyInfo.desc.replace(/[。．]$/, '')}」這些基礎,是 TA 目前程度最好的銜接點。
+          {isTopLevel ? (
+            <>{' '}接下來就是透過每兩個月的 Level-up 進階考持續精進,穩健銜接國中英語。</>
+          ) : (
+            <>{' '}Level {studyLevel} 穩定之後,下一個目標就是挑戰「<strong>Level {targetLevel} — {targetInfo.name}</strong>」,
+              屆時 TA 會學到{(COURSE_HIGHLIGHTS[targetLevel] || []).slice(0, 3).map(h => h.label).join('、')}等重點,
+              是 {targetInfo.grade} 非常重要的關鍵階段。</>
+          )}
+        </Script>
+        <Tip>用「現在的起點 → 下一個目標」描繪學習路徑,讓家長看到成長藍圖。</Tip>
+      </ConsultStep>
+
+      {/* STEP 5 */}
+      <ConsultStep n="5" title="說明課程如何補強弱項" hint="把弱項直接對應到課程特色,增強報名信心">
+        {topWeak.length > 0 ? (
+          <div className="space-y-2 mb-3">
+            {topWeak.map(s => (
+              <div key={s.skill} className="flex items-start gap-2.5 bg-stone-50 border border-stone-200 rounded-xl p-3">
+                <span className={`px-2 py-0.5 rounded text-[11px] font-bold shrink-0 ${toneCls[s.tier.tone]}`}>{s.label}</span>
+                <div>
+                  <p className="text-[12.5px] text-slate-700">{s.consult.weak}</p>
+                  <p className="text-[11.5px] text-emerald-700 font-bold mt-1">→ 由「{s.consult.course}」補強</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-600 mb-3">這次沒有明顯弱項,可著重說明課程如何幫助 TA 繼續往上挑戰。</p>
+        )}
+        <Script>
+          剛才說到{topWeak.length > 0 ? `「${topWeak.map(w => w.label).join('」和「')}」` : '需要加強的地方'}是需要加強的部分,
+          在我們課程裡都有系統性的設計:文法是「六級循序進階」,不會跳關,從 Be 動詞一路到完成式,
+          每個概念都要達到「讀、寫、造句、中文解釋、舉一反三」五合一通過,確保孩子是真正理解而非短期記憶。
+          {' '}發音與拼字的部分,我們有耶加獨創的 PPS 學習法 (Phonics 發音規則 / Pronunciation 嘴型矯正 / Spelling 拼寫),
+          用顏色分類記憶各式發音,讓孩子看字就能唸、唸了就能拼,不需要死記。
+        </Script>
+        <Tip>這是把「弱項」轉化為「課程賣點」的關鍵步驟,讓家長從「孩子有問題」轉變成「這裡剛好可以補足」。</Tip>
+      </ConsultStep>
+
+      {/* STEP 6 */}
+      <ConsultStep n="6" title="收尾 — 引導預約試聽" hint="用二擇一降低決策負擔">
+        <Script>
+          您看完這份報告,對孩子的程度應該有比較清楚的輪廓了。
+          我們建議可以先安排一堂免費試聽課,讓 TA 親身體驗 Level {studyLevel} 的上課方式,
+          實際感受一下我們的教學風格。<strong>您這週還是下週方便呢?</strong>
+        </Script>
+        <Tip>用「這週還是下週?」而不是「要不要試聽?」——二擇一大幅提高預約成功率。</Tip>
+      </ConsultStep>
+
+      {/* 五大核心課程 */}
+      <div className="bg-white rounded-2xl border border-stone-200 p-4">
+        <h3 className="font-bold text-slate-800 text-sm mb-1 flex items-center gap-1.5">
+          <BookMarked className="w-4 h-4 text-emerald-600" />五大核心課程(每週 5 小時)
+        </h3>
+        <p className="text-[11px] text-slate-500 mb-2.5">每堂 60 分鐘,家長問到課程結構時可直接引用</p>
+        <ul className="space-y-1.5">
+          {CORE_COURSES.map(c => (
+            <li key={c} className="text-[12.5px] text-slate-700 flex items-start gap-2">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />{c}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Q&A */}
+      <details className="bg-white rounded-2xl border border-stone-200 overflow-hidden">
+        <summary className="px-4 py-3 cursor-pointer font-bold text-slate-800 text-sm flex items-center gap-1.5">
+          <Info className="w-4 h-4 text-sky-600" />常見家長問題 Q&A（{CONSULT_FAQ.length} 題)
+        </summary>
+        <div className="px-4 pb-4 space-y-3">
+          {CONSULT_FAQ.map((f, i) => (
+            <div key={i} className="border-l-2 border-stone-200 pl-3">
+              <p className="text-[12.5px] font-bold text-slate-800">Q {f.q}</p>
+              <p className="text-[12px] text-slate-600 leading-relaxed mt-1">A {f.a}</p>
+            </div>
+          ))}
+        </div>
+      </details>
+
+      {/* 自我檢核 */}
+      <div className="bg-white rounded-2xl border border-stone-200 p-4">
+        <h3 className="font-bold text-slate-800 text-sm mb-2.5 flex items-center gap-1.5">
+          <Target className="w-4 h-4 text-violet-600" />介紹後自我檢核
+        </h3>
+        <ul className="space-y-1.5">
+          {CONSULT_CHECKLIST.map((c, i) => (
+            <li key={i} className="flex items-start gap-2 text-[12.5px] text-slate-700">
+              <span className="w-4 h-4 shrink-0 mt-0.5 border-2 border-stone-300 rounded" />{c}
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
