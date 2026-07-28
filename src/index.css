@@ -61,12 +61,43 @@
 }
 .sprite-sparkle { transform-box: fill-box; transform-origin: center; animation: sprite-sparkle 2.1s ease-in-out infinite; }
 
+/* 答對:開心跳躍 */
+@keyframes sprite-jump {
+  0%, 100% { transform: translateY(0);     }
+  28%      { transform: translateY(-10px); }
+  52%      { transform: translateY(0);     }
+  70%      { transform: translateY(-4px);  }
+  88%      { transform: translateY(0);     }
+}
+.sprite-jump { animation: sprite-jump 0.85s ease-out infinite; }
+
+/* 答錯:輕輕左右晃動 (刻意不用難過表情,避免打擊信心) */
+@keyframes sprite-wobble {
+  0%, 100% { transform: rotate(0deg);  }
+  25%      { transform: rotate(-6deg); }
+  75%      { transform: rotate(6deg);  }
+}
+.sprite-wobble { transform-box: fill-box; transform-origin: center bottom; animation: sprite-wobble 0.9s ease-in-out infinite; }
+
+/* 答對時向外炸開的星光 */
+@keyframes sprite-burst {
+  0%   { opacity: 0; transform: scale(0.2) rotate(0deg);   }
+  40%  { opacity: 1; transform: scale(1.1) rotate(70deg);  }
+  100% { opacity: 0; transform: scale(1.6) rotate(140deg); }
+}
+.sprite-burst { transform-box: fill-box; transform-origin: center; animation: sprite-burst 0.9s ease-out infinite; }
+
+/* 進度條上的陪跑角色:隨進度平滑移動 */
+.sprite-runner { transition: left 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+
 /* 尊重使用者的「減少動態效果」系統設定 */
 @media (prefers-reduced-motion: reduce) {
   .sprite-float, .sprite-float-talking,
-  .sprite-wing-l, .sprite-wing-r,
+  .sprite-arm-l, .sprite-arm-r,
   .sprite-mouth-talk, .sprite-wave,
-  .sprite-blink, .sprite-sparkle {
+  .sprite-blink, .sprite-sparkle,
+  .sprite-jump, .sprite-wobble, .sprite-burst {
     animation: none !important;
   }
+  .sprite-runner { transition: none !important; }
 }

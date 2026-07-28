@@ -1180,14 +1180,68 @@ const [gradeGroup, setGradeGroup] = useState('');
   );
 }
 
+/* 各模組的角色配件 — 讓五個模組有辨識度,學生會期待下一關 */
+const SPRITE_COSTUMES = {
+  /* Phonics:耳機 */
+  phonics: (
+    <g>
+      <path d="M30 44 A 20 20 0 0 1 70 44" stroke="#4C1D95" strokeWidth="3.4" fill="none" strokeLinecap="round" />
+      <rect x="22.5" y="42" width="9" height="13" rx="4.5" fill="#6D28D9" />
+      <rect x="68.5" y="42" width="9" height="13" rx="4.5" fill="#6D28D9" />
+    </g>
+  ),
+  /* Spelling:靠在身側的鉛筆 (略疊在身體上,才不會像浮在旁邊) */
+  spelling: (
+    <g transform="rotate(26 73 60)" stroke="#0C4A6E" strokeWidth="1.1">
+      <rect x="70" y="42" width="6" height="24" fill="#38BDF8" />
+      <rect x="70" y="38" width="6" height="4" fill="#E0F2FE" />
+      <path d="M70 66 L76 66 L73 73 Z" fill="#FDE68A" />
+      <path d="M71.4 70.7 L74.6 70.7 L73 73 Z" fill="#1F2937" stroke="none" />
+    </g>
+  ),
+  /* Vocabulary:翻開的書 (乳白書頁 + 書脊 + 頁面線條,才讀得出是書) */
+  vocabulary: (
+    <g>
+      <path d="M32 76 Q41 71.5 49.2 76 L49.2 88.5 Q41 84 32 88.5 Z" fill="#FFFBEB" stroke="#B45309" strokeWidth="1.5" />
+      <path d="M68 76 Q59 71.5 50.8 76 L50.8 88.5 Q59 84 68 88.5 Z" fill="#FFFBEB" stroke="#B45309" strokeWidth="1.5" />
+      <path d="M50 75 L50 88.5" stroke="#B45309" strokeWidth="2.1" />
+      <g stroke="#D97706" strokeWidth="0.9" opacity="0.65">
+        <path d="M36 80 L45.5 80 M36 83.4 L45.5 83.4" />
+        <path d="M54.5 80 L64 80 M54.5 83.4 L64 83.4" />
+      </g>
+    </g>
+  ),
+  /* Reading:眼鏡 */
+  reading: (
+    <g stroke="#1F2937" strokeWidth="2.4" fill="none">
+      <circle cx="38.5" cy="57" r="10.5" />
+      <circle cx="61.5" cy="57" r="10.5" />
+      <path d="M49 55 Q50 53.5 51 55" />
+      <path d="M28 54 L22 51" strokeLinecap="round" />
+      <path d="M72 54 L78 51" strokeLinecap="round" />
+    </g>
+  ),
+  /* Grammar:學士帽 */
+  grammar: (
+    <g>
+      <path d="M28 36 L50 28 L72 36 L50 44 Z" fill="#1E293B" />
+      <path d="M50 44 L50 50" stroke="#1E293B" strokeWidth="2" />
+      <path d="M66 39 L66 48" stroke="#1E293B" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="66" cy="49.5" r="2.4" fill="#FBBF24" />
+    </g>
+  )
+};
+
 /* ════════════════════════════════════════════════════════════════
-   ⭐ 蘋果語音角色 — 播放語音時會「開口說話」的動畫
+   ⭐ 蘋果角色 — 語音播放與答題回饋的動畫角色
    造型呼應網站 logo 的蘋果,維持品牌一致性。
-   speaking=true:嘴巴開合、雙手起勁揮動、兩側音波擴散
-   speaking=false:微笑待機、輕輕飄浮、偶爾眨眼
+   speaking:嘴巴開合、雙手起勁揮動、兩側音波擴散
+   mood='happy' (答對):瞇眼笑、大笑開口、跳躍、星光炸開
+   mood='oops'  (答錯):波浪嘴、輕輕晃動 — 刻意不用難過表情,避免打擊信心
+   costume:對應模組的配件 (見 SPRITE_COSTUMES)
    動畫定義於 index.css,並已支援 prefers-reduced-motion
    ═══════════════════════════════════════════════════════════════ */
-function TalkingSprite({ speaking = false, size = 72, className = '' }) {
+function TalkingSprite({ speaking = false, size = 72, className = '', mood = 'idle', costume = null }) {
   /* 同頁若有多個角色,漸層 id 需唯一 (useId 會含冒號,需清掉才能用於 url(#..)) */
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const glowId = `sprGlow${uid}`;
@@ -1195,6 +1249,10 @@ function TalkingSprite({ speaking = false, size = 72, className = '' }) {
   const limb = { stroke: '#1F2937', strokeWidth: 2.1, fill: 'none', strokeLinecap: 'round' };
   /* 小尺寸 (如結果頁 header) 時省略四肢與星光,否則細線會糊成一團看不清 */
   const compact = size < 56;
+  const happy = mood === 'happy';
+  const oops = mood === 'oops';
+  /* 情緒動畫優先於說話動畫 */
+  const motionClass = happy ? 'sprite-jump' : oops ? 'sprite-wobble' : speaking ? 'sprite-float-talking' : 'sprite-float';
 
   return (
     <svg viewBox="0 0 100 100" width={size} height={size} className={className}
@@ -1224,7 +1282,7 @@ function TalkingSprite({ speaking = false, size = 72, className = '' }) {
         </g>
       )}
 
-      <g className={speaking ? 'sprite-float-talking' : 'sprite-float'}>
+      <g className={motionClass}>
         {!compact && (
           <>
             {/* 雙腳 (先畫,置於身體之後) */}
@@ -1237,14 +1295,17 @@ function TalkingSprite({ speaking = false, size = 72, className = '' }) {
               <ellipse cx="60.5" cy="95.2" rx="5.2" ry="2.5" />
             </g>
 
-            {/* 雙手:靜態姿勢放外層 g,揮動動畫放內層,避免 CSS transform 蓋掉 SVG transform */}
-            <g className={`sprite-arm-l ${speaking ? 'sprite-arm-fast-l' : ''}`}>
-              <path d="M26 62 C 20 61, 15 57, 12.5 51" {...limb} />
-              <circle cx="11.2" cy="48.8" r="3.6" fill="#FFFFFF" stroke="#1F2937" strokeWidth="1.9" />
+            {/* 雙手:靜態姿勢放外層 g,揮動動畫放內層,避免 CSS transform 蓋掉 SVG transform
+                答對時雙手高舉歡呼 */}
+            <g className={`sprite-arm-l ${speaking || happy ? 'sprite-arm-fast-l' : ''}`}>
+              <path d={happy ? 'M26 60 C 20 56, 16 48, 15 40' : 'M26 62 C 20 61, 15 57, 12.5 51'} {...limb} />
+              <circle cx={happy ? 14.4 : 11.2} cy={happy ? 37.6 : 48.8} r="3.6"
+                fill="#FFFFFF" stroke="#1F2937" strokeWidth="1.9" />
             </g>
-            <g className={`sprite-arm-r ${speaking ? 'sprite-arm-fast-r' : ''}`}>
-              <path d="M74 62 C 80 61, 85 57, 87.5 51" {...limb} />
-              <circle cx="88.8" cy="48.8" r="3.6" fill="#FFFFFF" stroke="#1F2937" strokeWidth="1.9" />
+            <g className={`sprite-arm-r ${speaking || happy ? 'sprite-arm-fast-r' : ''}`}>
+              <path d={happy ? 'M74 60 C 80 56, 84 48, 85 40' : 'M74 62 C 80 61, 85 57, 87.5 51'} {...limb} />
+              <circle cx={happy ? 85.6 : 88.8} cy={happy ? 37.6 : 48.8} r="3.6"
+                fill="#FFFFFF" stroke="#1F2937" strokeWidth="1.9" />
             </g>
           </>
         )}
@@ -1264,24 +1325,56 @@ function TalkingSprite({ speaking = false, size = 72, className = '' }) {
         {/* 左上柔和高光 */}
         <ellipse cx="38" cy="49" rx="8.5" ry="5.5" fill="#FFFFFF" opacity="0.2" transform="rotate(-28 38 49)" />
 
-        {/* 眼睛 (待機時偶爾眨眼) */}
-        <g className={speaking ? '' : 'sprite-blink'}>
-          <ellipse cx="38.5" cy="57" rx="8.2" ry="9.8" fill="#FFFFFF" />
-          <ellipse cx="61.5" cy="57" rx="8.2" ry="9.8" fill="#FFFFFF" />
-          <ellipse cx="39.6" cy="54.4" rx="5.4" ry="6.2" fill="#0F172A" />
-          <ellipse cx="62.6" cy="54.4" rx="5.4" ry="6.2" fill="#0F172A" />
-          <circle cx="36.9" cy="51.4" r="1.5" fill="#FFFFFF" />
-          <circle cx="59.9" cy="51.4" r="1.5" fill="#FFFFFF" />
-        </g>
+        {/* 眼睛:答對時瞇眼笑,其餘為圓眼 (待機時偶爾眨眼) */}
+        {happy ? (
+          <g stroke="#0F172A" strokeWidth="3" fill="none" strokeLinecap="round">
+            <path d="M31.5 58 Q38.5 50 45.5 58" />
+            <path d="M54.5 58 Q61.5 50 68.5 58" />
+          </g>
+        ) : (
+          <g className={speaking ? '' : 'sprite-blink'}>
+            <ellipse cx="38.5" cy="57" rx="8.2" ry="9.8" fill="#FFFFFF" />
+            <ellipse cx="61.5" cy="57" rx="8.2" ry="9.8" fill="#FFFFFF" />
+            {/* 答錯時眼睛往下看 */}
+            <ellipse cx="39.6" cy={oops ? 59.5 : 54.4} rx="5.4" ry="6.2" fill="#0F172A" />
+            <ellipse cx="62.6" cy={oops ? 59.5 : 54.4} rx="5.4" ry="6.2" fill="#0F172A" />
+            <circle cx="36.9" cy={oops ? 56.5 : 51.4} r="1.5" fill="#FFFFFF" />
+            <circle cx="59.9" cy={oops ? 56.5 : 51.4} r="1.5" fill="#FFFFFF" />
+          </g>
+        )}
 
-        {/* 嘴巴:說話時開合,待機時微笑 (沿用原設計) */}
-        {speaking
-          ? <ellipse cx="50" cy="72" rx="5.2" ry="4.6" fill="#0F172A" className="sprite-mouth-talk" />
-          : <path d="M45.4 70.5 Q50 75.5 54.6 70.5" stroke="#0F172A" strokeWidth="2.4" fill="none" strokeLinecap="round" />}
+        {/* 嘴巴 */}
+        {happy
+          /* 答對:大笑開口 */
+          ? <path d="M41.5 68 Q50 81 58.5 68 Z" fill="#0F172A" />
+          : oops
+            /* 答錯:波浪嘴 (尷尬但不難過) */
+            ? <path d="M44.5 71.5 Q47 68.8 49.5 71.5 T54.5 71.5" stroke="#0F172A" strokeWidth="2.3" fill="none" strokeLinecap="round" />
+            : speaking
+              /* 說話:開合 */
+              ? <ellipse cx="50" cy="72" rx="5.2" ry="4.6" fill="#0F172A" className="sprite-mouth-talk" />
+              /* 待機:微笑 */
+              : <path d="M45.4 70.5 Q50 75.5 54.6 70.5" stroke="#0F172A" strokeWidth="2.4" fill="none" strokeLinecap="round" />}
+
+        {/* 模組配件 (畫在最上層) */}
+        {!compact && costume && SPRITE_COSTUMES[costume]}
       </g>
 
-      {/* 周圍星光 */}
-      {!compact && (
+      {/* 答對時向外炸開的星光
+          定位用外層 g,縮放動畫放內層 — 否則 CSS transform 會蓋掉 translate,星星會全部疊在臉上 */}
+      {happy && (
+        <g fill="#FBBF24">
+          {[[16, 30], [84, 32], [26, 12], [74, 14], [10, 62], [90, 64]].map(([x, y], i) => (
+            <g key={i} transform={`translate(${x - 53} ${y - 53})`}>
+              <path className="sprite-burst" style={{ animationDelay: `${i * 0.09}s` }}
+                d="M50 50 l1.7 4.6 4.6 1.7 -4.6 1.7 -1.7 4.6 -1.7 -4.6 -4.6 -1.7 4.6 -1.7z" />
+            </g>
+          ))}
+        </g>
+      )}
+
+      {/* 待機／說話時的周圍星光 */}
+      {!compact && !happy && (
         <g fill="#FDE047">
           <path className="sprite-sparkle" d="M20 26 l1.6 4.3 4.3 1.6 -4.3 1.6 -1.6 4.3 -1.6 -4.3 -4.3 -1.6 4.3 -1.6z" />
           <path className="sprite-sparkle" style={{ animationDelay: '0.8s' }}
@@ -1293,11 +1386,11 @@ function TalkingSprite({ speaking = false, size = 72, className = '' }) {
 }
 
 /* ⭐ 階段語音的角色 + 「再聽一次 / 暫停」控制鈕，Intro / ModuleIntro 共用 */
-function ClipButtons({ onReplay, onPause, speaking = false }) {
+function ClipButtons({ onReplay, onPause, speaking = false, costume = null }) {
   return (
     <div className="flex items-center justify-center gap-1 mb-4">
       <button onClick={onReplay} aria-label="再聽一次語音" className="active:scale-95 transition-transform">
-        <TalkingSprite speaking={speaking} size={76} />
+        <TalkingSprite speaking={speaking} size={76} costume={costume} />
       </button>
       <div className="flex flex-col gap-1.5">
         <button onClick={onReplay}
@@ -1445,7 +1538,7 @@ function ModuleIntro({ module, idx, total, onStart, playClip, pauseClip, clipPla
       <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-1.5">{module.name}</h2>
       <p className="text-base text-slate-500 mb-1">{module.label}</p>
       <p className="text-sm text-slate-400 mb-7">本模組共 {module.questions.length} 題</p>
-      <ClipButtons onReplay={() => playClip(`module-${module.id}`)} onPause={pauseClip} speaking={clipPlaying} />
+      <ClipButtons onReplay={() => playClip(`module-${module.id}`)} onPause={pauseClip} speaking={clipPlaying} costume={module.id} />
       <div className={`w-full max-w-md ${tag.bg} ${tag.border} border rounded-2xl p-4 mb-7 text-left`}>
         <p className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
           <Lightbulb className={`w-4 h-4 ${tag.color}`} />作答提示
@@ -1490,9 +1583,17 @@ function TestingScreen({ question, module, qIdx, totalAnswered, totalQuestions, 
           <span>整體進度</span>
           <span>{totalAnswered + 1} / {totalQuestions}</span>
         </div>
-        <div className="h-0.5 bg-stone-100 rounded-full overflow-hidden mt-0.5">
-          <div className="h-full bg-emerald-500 rounded-full transition-all duration-700"
-            style={{ width: `${Math.min(overallProgress, 100)}%` }} />
+        {/* ⭐ 進度陪跑員:角色站在進度條上隨作答往前走,讓「還有多遠」看得見 */}
+        <div className="relative mt-0.5 pt-5">
+          <div
+            className="sprite-runner absolute top-0 -translate-x-1/2 pointer-events-none"
+            style={{ left: `${Math.min(Math.max(overallProgress, 2), 98)}%` }}>
+            <TalkingSprite size={30} costume={module.id} />
+          </div>
+          <div className="h-1 bg-stone-100 rounded-full overflow-hidden">
+            <div className="h-full bg-emerald-500 rounded-full transition-all duration-700"
+              style={{ width: `${Math.min(overallProgress, 100)}%` }} />
+          </div>
         </div>
       </div>
 
@@ -1521,7 +1622,7 @@ function TestingScreen({ question, module, qIdx, totalAnswered, totalQuestions, 
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center w-full mb-5">
-          <QuestionContent question={question} isSpeaking={isSpeaking} onReplayAudio={onReplayAudio} audioBlocked={audioBlocked} />
+          <QuestionContent question={question} moduleId={module.id} isSpeaking={isSpeaking} onReplayAudio={onReplayAudio} audioBlocked={audioBlocked} />
         </div>
 
         <div className="flex flex-col gap-3">
@@ -1554,15 +1655,21 @@ function TestingScreen({ question, module, qIdx, totalAnswered, totalQuestions, 
         </div>
 
         {feedback === 'correct' && (
-          <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="text-xs font-bold text-emerald-800">答對了!做得好。</span>
+          <div className="mt-3 p-2 pr-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-1">
+            <TalkingSprite mood="happy" size={60} className="shrink-0 -my-1" />
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="text-xs font-bold text-emerald-800">答對了!做得好。</span>
+            </div>
           </div>
         )}
         {feedback === 'incorrect' && (
-          <div className="mt-3 p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2">
-            <Heart className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
-            <span className="text-xs font-medium text-amber-800">沒關係,錯誤是學習的好機會。完整解析會在最後的報告中。</span>
+          <div className="mt-3 p-2 pr-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-1">
+            <TalkingSprite mood="oops" size={60} className="shrink-0 -my-1" />
+            <div className="flex items-start gap-1.5">
+              <Heart className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
+              <span className="text-xs font-medium text-amber-800">沒關係,錯誤是學習的好機會。完整解析會在最後的報告中。</span>
+            </div>
           </div>
         )}
       </div>
@@ -1571,7 +1678,7 @@ function TestingScreen({ question, module, qIdx, totalAnswered, totalQuestions, 
 }
 
 /* 題目主體 (依題型渲染) */
-function QuestionContent({ question, isSpeaking, onReplayAudio, audioBlocked }) {
+function QuestionContent({ question, moduleId, isSpeaking, onReplayAudio, audioBlocked }) {
   // 1. Phonics 閃卡題
   if (question.flashcard) {
     const tone = FLASHCARD_TONE[question.flashcard.tone];
@@ -1598,7 +1705,7 @@ function QuestionContent({ question, isSpeaking, onReplayAudio, audioBlocked }) 
         {/* 角色本身就是播放鍵:點一下播放題目語音 */}
         <button onClick={onReplayAudio} aria-label="播放題目語音"
           className={`rounded-full transition-transform active:scale-95 ${needsTap ? 'animate-pulse' : 'hover:scale-105'}`}>
-          <TalkingSprite speaking={isSpeaking} size={124} />
+          <TalkingSprite speaking={isSpeaking} size={124} costume={moduleId} />
         </button>
         <h3 className="text-xl sm:text-2xl font-bold text-slate-700">
           {isSpeaking ? '正在播放題目...' : '按一下聆聽題目'}
