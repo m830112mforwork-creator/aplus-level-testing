@@ -5,12 +5,12 @@ import {
   Type, BrainCircuit, BookText, Timer, Flame, Sparkles, CheckCircle2,
   XCircle, GraduationCap, Heart, Award, ArrowRight, ChevronRight,
   User, Users, Star, FileText, Apple, Pencil, Library, Mic, Settings,
-  Play, BookMarked, Rocket, Medal, Phone, ChevronLeft, Info, Printer, Lock, MapPin, CloudOff, RefreshCcw, Pause
+  Play, BookMarked, Rocket, Medal, Phone, ChevronLeft, Info, Printer, Lock, MapPin, CloudOff, RefreshCcw, Pause, Trash2
 } from 'lucide-react';
 import { db } from './firebase';
-import { ref, push, get } from 'firebase/database';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas-pro';
+import { ref, push, get, remove } from 'firebase/database';
+/* jsPDF 與 html2canvas 約 370KB,只有結果頁按下「匯出 PDF」才用得到,
+   因此改為動態載入 (見 exportPdf),避免拖慢學生一開始開啟網站的速度 */
 /* ════════════════════════════════════════════════════════════════
    A.P.L.U.S Level Testing v4 — Recruitment-Optimized
    • 5 模組綜合診斷 (跳過 Speaking,自主作答)
@@ -539,6 +539,11 @@ async function loadRecordsFromCloud() {
     .reverse();
 }
 
+/* 從雲端刪除單筆紀錄 (用於清除測試資料或誤填的紀錄) */
+function deleteRecordFromCloud(id) {
+  return remove(ref(db, `records/${id}`));
+}
+
 /* 取得紀錄的「當地日期」字串 (YYYY-MM-DD),用於日期範圍篩選。
    新紀錄有標準的 iso 欄位;舊紀錄只有 zh-TW 格式的 ts (例:2026/7/21 23:20:14),需另外解析。 */
 function recordDateKey(r) {
@@ -628,6 +633,7 @@ function RecordsOverview({ onBack }) {
   const [fFrom, setFFrom] = useState('');
   const [fTo, setFTo] = useState('');
   const [fName, setFName] = useState('');
+  const [deletingId, setDeletingId] = useState(null);
   const formatSeconds = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
   const fetchRecords = () => {
@@ -635,6 +641,22 @@ function RecordsOverview({ onBack }) {
     loadRecordsFromCloud()
       .then(list => { setRecords(list); setStatus('ready'); })
       .catch(err => { console.error('讀取雲端紀錄失敗', err); setStatus('error'); });
+  };
+
+  /* 刪除單筆紀錄:刪除無法復原,因此一定要先確認 */
+  const handleDelete = async (r) => {
+    const who = `${r.studentName || '(未填姓名)'}${r.campus ? ' · ' + r.campus : ''}`;
+    if (!window.confirm(`確定要刪除這筆紀錄嗎?\n\n${who}\n${r.ts}\n\n刪除後無法復原。`)) return;
+    setDeletingId(r.id);
+    try {
+      await deleteRecordFromCloud(r.id);
+      setRecords(list => list.filter(x => x.id !== r.id));
+    } catch (e) {
+      console.error('刪除失敗', e);
+      alert('刪除失敗,請檢查網路連線後再試一次。');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   useEffect(() => {
@@ -772,11 +794,12 @@ function RecordsOverview({ onBack }) {
                 <th className="px-4 py-3">判定級數</th>
                 <th className="px-4 py-3">正確率</th>
                 <th className="px-4 py-3">用時</th>
+                <th className="px-4 py-3 text-right">管理</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
               {filtered.map((r) => (
-                <tr key={r.id} className="hover:bg-stone-50">
+                <tr key={r.id} className={`hover:bg-stone-50 ${deletingId === r.id ? 'opacity-40' : ''}`}>
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{r.ts}</td>
                   <td className="px-4 py-3 text-slate-600">{r.campus || '—'}</td>
                   <td className="px-4 py-3 font-bold text-slate-800">{r.studentName || '—'}</td>
@@ -789,6 +812,13 @@ function RecordsOverview({ onBack }) {
                   </td>
                   <td className="px-4 py-3 text-slate-600">{r.correct}/{r.total}（{r.accuracy}%）</td>
                   <td className="px-4 py-3 text-slate-600">{formatSeconds(r.seconds)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button onClick={() => handleDelete(r)} disabled={deletingId === r.id}
+                      title="刪除這筆紀錄" aria-label={`刪除 ${r.studentName || ''} 的紀錄`}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-50">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -908,6 +938,8 @@ const [gradeGroup, setGradeGroup] = useState('');
   };
 
   /* ⭐ 階段歡迎語音：真人錄音檔，放在 public/audio/ 下。
+     優先使用壓縮過的 .m4a (檔案小 75%)；若該檔不存在則自動退回 .mp3，
+     這樣日後直接把 mp3 放進資料夾也能運作，不必先轉檔。
      檔案不存在或播放被擋下時會靜默略過，不影響測驗流程。
      每次呼叫都會先停掉還在播放的上一段，避免疊音；
      可傳入 onEnded 讓下一段語音等這段真正播完再接著播。 */
@@ -916,19 +948,32 @@ const [gradeGroup, setGradeGroup] = useState('');
       clipAudioRef.current.pause();
       clipAudioRef.current = null;
     }
-    try {
-      const audio = new Audio(`${import.meta.env.BASE_URL}audio/${name}.mp3`);
-      clipAudioRef.current = audio;
-      const finish = () => {
-        if (clipAudioRef.current === audio) clipAudioRef.current = null;
-        setClipPlaying(false);
-        onEnded?.();
-      };
-      audio.addEventListener('ended', finish);
-      audio.addEventListener('pause', () => setClipPlaying(false));
-      audio.addEventListener('playing', () => setClipPlaying(true));
-      audio.play().catch(finish);
-    } catch { setClipPlaying(false); onEnded?.(); }
+    const base = `${import.meta.env.BASE_URL}audio/${name}`;
+
+    const attempt = (exts) => {
+      if (!exts.length) { setClipPlaying(false); onEnded?.(); return; }
+      const [ext, ...rest] = exts;
+      try {
+        const audio = new Audio(`${base}.${ext}`);
+        clipAudioRef.current = audio;
+        const finish = () => {
+          if (clipAudioRef.current === audio) clipAudioRef.current = null;
+          setClipPlaying(false);
+          onEnded?.();
+        };
+        audio.addEventListener('ended', finish);
+        audio.addEventListener('pause', () => setClipPlaying(false));
+        audio.addEventListener('playing', () => setClipPlaying(true));
+        /* 找不到檔案或格式不支援 → 換下一個副檔名再試 */
+        audio.addEventListener('error', () => {
+          if (clipAudioRef.current === audio) clipAudioRef.current = null;
+          attempt(rest);
+        });
+        audio.play().catch(finish);
+      } catch { attempt(rest); }
+    };
+
+    attempt(['m4a', 'mp3']);
   };
 
   const stopClip = () => {
@@ -1770,6 +1815,11 @@ function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElaps
     if (!contentRef.current || exportingPdf) return;
     setExportingPdf(true);
     try {
+      /* 動態載入:這兩個套件只有這裡用得到,不放進初始 bundle */
+      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+        import('jspdf'),
+        import('html2canvas-pro')
+      ]);
       const canvas = await html2canvas(contentRef.current, { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' });
       const imgData = canvas.toDataURL('image/jpeg', 0.85);
       const pdf = new jsPDF('p', 'mm', 'a4');
