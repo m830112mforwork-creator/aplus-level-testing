@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useId } from 'react';
 import {
   Volume2, RotateCcw, Compass, Zap, BookOpen, Crown, TrendingUp,
   BarChart3, AudioLines, Target, AlertCircle, Lightbulb, Globe2, Ear,
@@ -846,6 +846,7 @@ export default function APLUSLevelTesting() {
   const [audioBlocked, setAudioBlocked] = useState(false);
   const speechPrimed = useRef(false);
   const clipAudioRef = useRef(null);
+  const [clipPlaying, setClipPlaying] = useState(false);   /* 階段語音是否正在播放 → 驅動角色說話動畫 */
   const [moduleIdx, setModuleIdx] = useState(0);
   const [qIdx, setQIdx] = useState(0);
   const [answers, setAnswers] = useState([]);
@@ -920,11 +921,14 @@ const [gradeGroup, setGradeGroup] = useState('');
       clipAudioRef.current = audio;
       const finish = () => {
         if (clipAudioRef.current === audio) clipAudioRef.current = null;
+        setClipPlaying(false);
         onEnded?.();
       };
       audio.addEventListener('ended', finish);
+      audio.addEventListener('pause', () => setClipPlaying(false));
+      audio.addEventListener('playing', () => setClipPlaying(true));
       audio.play().catch(finish);
-    } catch { onEnded?.(); }
+    } catch { setClipPlaying(false); onEnded?.(); }
   };
 
   const stopClip = () => {
@@ -932,11 +936,13 @@ const [gradeGroup, setGradeGroup] = useState('');
       clipAudioRef.current.pause();
       clipAudioRef.current = null;
     }
+    setClipPlaying(false);
   };
 
   /* 只暫停目前正在播放的階段語音，不清空 ref（跟 stopClip 不同，用於使用者主動按暫停鍵） */
   const pauseClip = () => {
     clipAudioRef.current?.pause();
+    setClipPlaying(false);
   };
 
   const speak = (text, opts = {}) => {
@@ -1144,12 +1150,12 @@ const [gradeGroup, setGradeGroup] = useState('');
             selectedVoiceName={selectedVoiceName} setSelectedVoiceName={setSelectedVoiceName}
             onTestVoice={(text) => speak(text)}
             onStart={startTest}
-            playClip={playClip} pauseClip={pauseClip}
+            playClip={playClip} pauseClip={pauseClip} clipPlaying={clipPlaying}
           />
         )}
         {screen === 'testing' && showModuleIntro && (
           <ModuleIntro module={activeModules[moduleIdx]} idx={moduleIdx} total={activeModules.length} onStart={beginModule}
-            playClip={playClip} pauseClip={pauseClip} />
+            playClip={playClip} pauseClip={pauseClip} clipPlaying={clipPlaying} />
         )}
         {screen === 'testing' && !showModuleIntro && currentQuestion && (
           <TestingScreen
@@ -1166,7 +1172,7 @@ const [gradeGroup, setGradeGroup] = useState('');
             answers={answers} timeElapsed={timeElapsed} formatTime={formatTime}
             studentName={studentName} studentGrade={studentGrade} campus={campus}
             onRestart={() => { setSavedOk(null); setCloudSyncOk(null); setScreen('campus'); }}
-            playClip={playClip} pauseClip={pauseClip}
+            playClip={playClip} pauseClip={pauseClip} clipPlaying={clipPlaying}
           />
         )}
       </div>
@@ -1174,18 +1180,135 @@ const [gradeGroup, setGradeGroup] = useState('');
   );
 }
 
-/* ⭐ 階段語音的「再聽一次 / 暫停」控制鈕，Intro / ModuleIntro / Dashboard 共用 */
-function ClipButtons({ onReplay, onPause }) {
+/* ════════════════════════════════════════════════════════════════
+   ⭐ 蘋果語音角色 — 播放語音時會「開口說話」的動畫
+   造型呼應網站 logo 的蘋果,維持品牌一致性。
+   speaking=true:嘴巴開合、雙手起勁揮動、兩側音波擴散
+   speaking=false:微笑待機、輕輕飄浮、偶爾眨眼
+   動畫定義於 index.css,並已支援 prefers-reduced-motion
+   ═══════════════════════════════════════════════════════════════ */
+function TalkingSprite({ speaking = false, size = 72, className = '' }) {
+  /* 同頁若有多個角色,漸層 id 需唯一 (useId 會含冒號,需清掉才能用於 url(#..)) */
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const glowId = `sprGlow${uid}`;
+  const bodyId = `sprBody${uid}`;
+  const limb = { stroke: '#1F2937', strokeWidth: 2.1, fill: 'none', strokeLinecap: 'round' };
+  /* 小尺寸 (如結果頁 header) 時省略四肢與星光,否則細線會糊成一團看不清 */
+  const compact = size < 56;
+
   return (
-    <div className="flex items-center justify-center gap-2 mb-4">
-      <button onClick={onReplay}
-        className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-slate-600 rounded-lg text-xs font-bold flex items-center gap-1.5">
-        <RotateCcw className="w-3.5 h-3.5" />再聽一次
+    <svg viewBox="0 0 100 100" width={size} height={size} className={className}
+      aria-hidden="true" focusable="false">
+      <defs>
+        <radialGradient id={glowId} cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stopColor="#FCA5A5" stopOpacity="0.45" />
+          <stop offset="65%"  stopColor="#FCA5A5" stopOpacity="0.1" />
+          <stop offset="100%" stopColor="#FCA5A5" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={bodyId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#F4593F" />
+          <stop offset="100%" stopColor="#DC2626" />
+        </linearGradient>
+      </defs>
+
+      {/* 外圈暖色光暈 */}
+      <circle cx="50" cy="58" r="42" fill={`url(#${glowId})`} />
+
+      {/* 說話時的音波 (置於身體下半部兩側,避免與手臂重疊) */}
+      {speaking && (
+        <g stroke="#FB923C" strokeWidth="2.6" fill="none" strokeLinecap="round">
+          <path className="sprite-wave" d="M19 70 Q13 76 19 82" />
+          <path className="sprite-wave" style={{ animationDelay: '0.4s' }} d="M13 66 Q5 76 13 86" />
+          <path className="sprite-wave" d="M81 70 Q87 76 81 82" />
+          <path className="sprite-wave" style={{ animationDelay: '0.4s' }} d="M87 66 Q95 76 87 86" />
+        </g>
+      )}
+
+      <g className={speaking ? 'sprite-float-talking' : 'sprite-float'}>
+        {!compact && (
+          <>
+            {/* 雙腳 (先畫,置於身體之後) */}
+            <g {...limb}>
+              <path d="M43 84 L41.5 93.5" />
+              <path d="M57 84 L58.5 93.5" />
+            </g>
+            <g fill="#FFFFFF" stroke="#1F2937" strokeWidth="1.9">
+              <ellipse cx="39.5" cy="95.2" rx="5.2" ry="2.5" />
+              <ellipse cx="60.5" cy="95.2" rx="5.2" ry="2.5" />
+            </g>
+
+            {/* 雙手:靜態姿勢放外層 g,揮動動畫放內層,避免 CSS transform 蓋掉 SVG transform */}
+            <g className={`sprite-arm-l ${speaking ? 'sprite-arm-fast-l' : ''}`}>
+              <path d="M26 62 C 20 61, 15 57, 12.5 51" {...limb} />
+              <circle cx="11.2" cy="48.8" r="3.6" fill="#FFFFFF" stroke="#1F2937" strokeWidth="1.9" />
+            </g>
+            <g className={`sprite-arm-r ${speaking ? 'sprite-arm-fast-r' : ''}`}>
+              <path d="M74 62 C 80 61, 85 57, 87.5 51" {...limb} />
+              <circle cx="88.8" cy="48.8" r="3.6" fill="#FFFFFF" stroke="#1F2937" strokeWidth="1.9" />
+            </g>
+          </>
+        )}
+
+        {/* 蒂頭與葉子 */}
+        <path d="M50 42 C 53 33, 56 27, 59 23" stroke="#7C3F1D" strokeWidth="3.2" fill="none" strokeLinecap="round" />
+        <path d="M54 30 C 49 22, 41 22, 37 27 C 41 33, 50 34, 54 30 Z" fill="#22C55E" />
+
+        {/* 蘋果身體 (上方有中央凹陷的雙弧形) */}
+        <path fill={`url(#${bodyId})`} d="M50 44
+          C 46 34, 35 30, 29 36
+          C 21 43, 20 57, 24 69
+          C 28 81, 39 88, 50 88
+          C 61 88, 72 81, 76 69
+          C 80 57, 79 43, 71 36
+          C 65 30, 54 34, 50 44 Z" />
+        {/* 左上柔和高光 */}
+        <ellipse cx="38" cy="49" rx="8.5" ry="5.5" fill="#FFFFFF" opacity="0.2" transform="rotate(-28 38 49)" />
+
+        {/* 眼睛 (待機時偶爾眨眼) */}
+        <g className={speaking ? '' : 'sprite-blink'}>
+          <ellipse cx="38.5" cy="57" rx="8.2" ry="9.8" fill="#FFFFFF" />
+          <ellipse cx="61.5" cy="57" rx="8.2" ry="9.8" fill="#FFFFFF" />
+          <ellipse cx="39.6" cy="54.4" rx="5.4" ry="6.2" fill="#0F172A" />
+          <ellipse cx="62.6" cy="54.4" rx="5.4" ry="6.2" fill="#0F172A" />
+          <circle cx="36.9" cy="51.4" r="1.5" fill="#FFFFFF" />
+          <circle cx="59.9" cy="51.4" r="1.5" fill="#FFFFFF" />
+        </g>
+
+        {/* 嘴巴:說話時開合,待機時微笑 (沿用原設計) */}
+        {speaking
+          ? <ellipse cx="50" cy="72" rx="5.2" ry="4.6" fill="#0F172A" className="sprite-mouth-talk" />
+          : <path d="M45.4 70.5 Q50 75.5 54.6 70.5" stroke="#0F172A" strokeWidth="2.4" fill="none" strokeLinecap="round" />}
+      </g>
+
+      {/* 周圍星光 */}
+      {!compact && (
+        <g fill="#FDE047">
+          <path className="sprite-sparkle" d="M20 26 l1.6 4.3 4.3 1.6 -4.3 1.6 -1.6 4.3 -1.6 -4.3 -4.3 -1.6 4.3 -1.6z" />
+          <path className="sprite-sparkle" style={{ animationDelay: '0.8s' }}
+            d="M79 28 l1.3 3.5 3.5 1.3 -3.5 1.3 -1.3 3.5 -1.3 -3.5 -3.5 -1.3 3.5 -1.3z" />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+/* ⭐ 階段語音的角色 + 「再聽一次 / 暫停」控制鈕，Intro / ModuleIntro 共用 */
+function ClipButtons({ onReplay, onPause, speaking = false }) {
+  return (
+    <div className="flex items-center justify-center gap-1 mb-4">
+      <button onClick={onReplay} aria-label="再聽一次語音" className="active:scale-95 transition-transform">
+        <TalkingSprite speaking={speaking} size={76} />
       </button>
-      <button onClick={onPause}
-        className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-slate-600 rounded-lg text-xs font-bold flex items-center gap-1.5">
-        <Pause className="w-3.5 h-3.5" />暫停語音
-      </button>
+      <div className="flex flex-col gap-1.5">
+        <button onClick={onReplay}
+          className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-slate-600 rounded-lg text-xs font-bold flex items-center gap-1.5">
+          <RotateCcw className="w-3.5 h-3.5" />再聽一次
+        </button>
+        <button onClick={onPause}
+          className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-slate-600 rounded-lg text-xs font-bold flex items-center gap-1.5">
+          <Pause className="w-3.5 h-3.5" />暫停語音
+        </button>
+      </div>
     </div>
   );
 }
@@ -1195,7 +1318,7 @@ function ClipButtons({ onReplay, onPause }) {
    ═══════════════════════════════════════════════════════════════ */
 function IntroScreen({ modules, totalQuestions, gradeGroup, onBack,
                       studentName, setStudentName, studentGrade, setStudentGrade,
-                      availableVoices, selectedVoiceName, setSelectedVoiceName, onTestVoice, onStart, playClip, pauseClip }) {
+                      availableVoices, selectedVoiceName, setSelectedVoiceName, onTestVoice, onStart, playClip, pauseClip, clipPlaying }) {
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
 
   useEffect(() => { playClip?.('welcome'); }, []);
@@ -1214,7 +1337,7 @@ function IntroScreen({ modules, totalQuestions, gradeGroup, onBack,
       <p className="text-slate-500 font-medium text-sm mb-1">{SCHOOL_NAME} · {SCHOOL_TAGLINE}</p>
       <p className="text-emerald-600 text-xs font-bold mb-6">五大模組綜合診斷 · 自主作答版</p>
 
-      <ClipButtons onReplay={() => playClip('welcome')} onPause={pauseClip} />
+      <ClipButtons onReplay={() => playClip('welcome')} onPause={pauseClip} speaking={clipPlaying} />
 
       {/* 學生資料 */}
       <div className="w-full max-w-sm space-y-2.5 mb-4">
@@ -1303,7 +1426,7 @@ function ModuleLine({ icon: Icon, color, name, label, qCount }) {
 /* ════════════════════════════════════════════════════════════════
    模組過場
    ═══════════════════════════════════════════════════════════════ */
-function ModuleIntro({ module, idx, total, onStart, playClip, pauseClip }) {
+function ModuleIntro({ module, idx, total, onStart, playClip, pauseClip, clipPlaying }) {
   const tag = SKILL_TAGS[module.skill];
   const Icon = tag.icon;
   const tips = {
@@ -1322,7 +1445,7 @@ function ModuleIntro({ module, idx, total, onStart, playClip, pauseClip }) {
       <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-1.5">{module.name}</h2>
       <p className="text-base text-slate-500 mb-1">{module.label}</p>
       <p className="text-sm text-slate-400 mb-7">本模組共 {module.questions.length} 題</p>
-      <ClipButtons onReplay={() => playClip(`module-${module.id}`)} onPause={pauseClip} />
+      <ClipButtons onReplay={() => playClip(`module-${module.id}`)} onPause={pauseClip} speaking={clipPlaying} />
       <div className={`w-full max-w-md ${tag.bg} ${tag.border} border rounded-2xl p-4 mb-7 text-left`}>
         <p className="text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
           <Lightbulb className={`w-4 h-4 ${tag.color}`} />作答提示
@@ -1471,20 +1594,14 @@ function QuestionContent({ question, isSpeaking, onReplayAudio, audioBlocked }) 
   if (question.audio) {
     const needsTap = audioBlocked && !isSpeaking;
     return (
-      <div className="flex flex-col items-center gap-4 w-full">
+      <div className="flex flex-col items-center gap-2 w-full">
+        {/* 角色本身就是播放鍵:點一下播放題目語音 */}
         <button onClick={onReplayAudio} aria-label="播放題目語音"
-          className={`w-24 h-24 rounded-full flex items-center justify-center shadow-sm border-4 transition-all active:scale-95
-            ${isSpeaking
-              ? 'bg-emerald-50 border-emerald-100 scale-105'
-              : needsTap
-                ? 'bg-emerald-600 border-emerald-200 animate-pulse'
-                : 'bg-white border-stone-100 hover:border-emerald-200'}`}>
-          {isSpeaking
-            ? <AudioLines className="w-9 h-9 text-emerald-600 animate-pulse" />
-            : <Volume2 className={`w-9 h-9 ${needsTap ? 'text-white' : 'text-slate-400'}`} />}
+          className={`rounded-full transition-transform active:scale-95 ${needsTap ? 'animate-pulse' : 'hover:scale-105'}`}>
+          <TalkingSprite speaking={isSpeaking} size={124} />
         </button>
         <h3 className="text-xl sm:text-2xl font-bold text-slate-700">
-          {needsTap ? '請按一下喇叭聽題目' : '點擊播放音檔'}
+          {isSpeaking ? '正在播放題目...' : '按一下聆聽題目'}
         </h3>
         {needsTap
           ? <p className="text-xs text-amber-600 font-bold">此裝置需要手動播放 · 可重複點擊</p>
@@ -1535,7 +1652,7 @@ function QuestionContent({ question, isSpeaking, onReplayAudio, audioBlocked }) 
 /* ════════════════════════════════════════════════════════════════
    Dashboard — 含學校優勢 + 招生 CTA
    ═══════════════════════════════════════════════════════════════ */
-function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElapsed, formatTime, studentName, studentGrade, campus, onRestart, playClip, pauseClip }) {
+function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElapsed, formatTime, studentName, studentGrade, campus, onRestart, playClip, pauseClip, clipPlaying }) {
   const [view, setView] = useState('student');
   const [exportingPdf, setExportingPdf] = useState(false);
   const contentRef = useRef(null);
@@ -1635,9 +1752,9 @@ function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElaps
               <GraduationCap className="w-3 h-3" /><span className="hidden sm:inline">教育者</span>
             </button>
           </div>
-          <button onClick={() => playClip('complete')} title="再聽一次語音"
-            className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-slate-700 rounded-lg font-bold text-[11px] flex items-center gap-1">
-            <RotateCcw className="w-3 h-3" /><span className="hidden sm:inline">語音</span>
+          <button onClick={() => playClip('complete')} title="再聽一次語音" aria-label="再聽一次語音"
+            className="px-1 rounded-lg active:scale-95 transition-transform">
+            <TalkingSprite speaking={clipPlaying} size={38} />
           </button>
           <button onClick={pauseClip} title="暫停語音"
             className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-slate-700 rounded-lg font-bold text-[11px] flex items-center gap-1">
