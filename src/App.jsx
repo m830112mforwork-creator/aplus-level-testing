@@ -220,7 +220,7 @@ const CONSULT_CHECKLIST = [
   '清楚說明了推薦的 Level 和班名',
   '說明了課程如何補強孩子的弱項',
   '描繪了學習路徑(現在 Level → 下一目標)',
-  '用二擇一引導預約試聽'
+  '說明了上課時間、導師,並用二擇一確認入班日期'
 ];
 
 /* ════════════════════════════════════════════════════════════════
@@ -2436,9 +2436,6 @@ function ConsultantView({ levelData, estimatedLevel, moduleStats, studentName,
   const targetLevel = isTopLevel ? studyLevel : LEVELS[studyIdx + 1];
   const targetInfo = LEVEL_INFO[targetLevel];
 
-  /* STEP 6 收尾情境:尚未安排試讀 (邀約) / 已上完試讀課 (準備入班) */
-  const [closing, setClosing] = useState('trial');
-
   /* 五大能力:依表現由高到低排序,確保「先說強項、後說弱項」 */
   const skills = useMemo(() => Object.keys(SKILL_TAGS).map(s => {
     const st = moduleStats[s.toLowerCase()] || { correct: 0, total: 0 };
@@ -2473,10 +2470,11 @@ function ConsultantView({ levelData, estimatedLevel, moduleStats, studentName,
       {/* STEP 1 */}
       <ConsultStep n="1" title="開場 — 肯定孩子完成測驗" hint="先讓家長放鬆,也讓孩子感到被肯定">
         <Script>
-          恭喜 <strong>{who}</strong> 完成了這次的程度測驗!我們一起來看看測驗結果,
-          了解 TA 目前的英語能力,和接下來最適合的學習方向。
+          Hello,〔家長稱謂〕您好,我是英語老師〔請說出您的姓名〕。恭喜 <strong>{who}</strong> 完成了這次的程度測驗!
+          我們已經按照 TA 的測驗結果,安排英語班級讓 TA 試讀,想抽空和爸爸媽媽聊聊孩子的試讀狀況,
+          以及一起來看看測驗結果,了解 TA 目前的英語能力,和接下來最適合的學習方向。
         </Script>
-        <Tip>開場以「恭喜完成」為主軸。不要說「先看看考了幾分」,避免家長直覺進入評分模式。</Tip>
+        <Tip>開場以「恭喜完成」為主軸。不要說「先看看考了幾分」,避免家長直覺進入評分模式。測驗完會直接安排試讀,不會有「尚未安排試讀」的情況。</Tip>
       </ConsultStep>
 
       {/* STEP 2 */}
@@ -2491,14 +2489,16 @@ function ConsultantView({ levelData, estimatedLevel, moduleStats, studentName,
             ))}
         </div>
         <Script>
-          這次測驗共答對 <strong>{totalCorrect}</strong> 題,正確率 <strong>{overallAccuracy}%</strong>,
+          <strong>{who}</strong>這次測驗共答對 <strong>{totalCorrect}</strong> 題,正確率 <strong>{overallAccuracy}%</strong>,
           用時大約 <strong>{minutes}</strong> 分鐘。
           {strengths.length > 0 && <>其中 <strong>{strengths[0].label}</strong> 的表現特別好,答對 {strengths[0].correct}/{strengths[0].total}。</>}
           {' '}根據結果,TA 目前對應到國際標準 CEFR 的「<strong>{levelData.cefr}</strong>」等級,
           在我們 A.P.L.U.S 系統裡對標的是「<strong>{estimatedLevel === PRE_A ? 'Pre-A 預備階段' : `Level ${estimatedLevel} — ${levelData.name}`}</strong>」,
           這個級數最適合 <strong>{levelData.grade}</strong> 的孩子。
+          也因此在英語班級,TA 今天試讀的正是「<strong>{estimatedLevel === PRE_A ? 'Pre-A 預備階段' : `Level ${estimatedLevel}`}</strong>」,
+          TA 今天上課的時候〔請分享一則正向的觀察,以及孩子可以優化的部分〕,那我們接下來就一起看看測驗結果的細節。
         </Script>
-        <Tip>先說成績的亮點(例如「速度很快」或「閱讀表現很好」),再帶出程度定位,家長感受會截然不同。</Tip>
+        <Tip>先說成績的亮點(例如「速度很快」或「閱讀表現很好」),再帶出程度定位,家長感受會截然不同。試讀班級的級數會跟測驗結果一致,可順勢連結今天上課的實際觀察。</Tip>
       </ConsultStep>
 
       {/* STEP 3 */}
@@ -2581,7 +2581,7 @@ function ConsultantView({ levelData, estimatedLevel, moduleStats, studentName,
           </div>
         </div>
         <Script>
-          根據這份報告,我們建議 TA 從「<strong>Level {studyLevel} — {studyInfo.name}</strong>」開始學習。
+          根據測驗的結果,還有今天在班上的學習評估,我們建議 TA 從「<strong>Level {studyLevel} — {studyInfo.name}</strong>」開始學習。
           這個班正好在建立「{studyInfo.desc.replace(/[。．]$/, '')}」這些基礎,是 TA 目前程度最好的銜接點。
           {isTopLevel ? (
             <>{' '}接下來就是透過每兩個月的 Level-up 進階考持續精進,穩健銜接國中英語。</>
@@ -2612,7 +2612,7 @@ function ConsultantView({ levelData, estimatedLevel, moduleStats, studentName,
           <p className="text-sm text-slate-600 mb-3">這次沒有明顯弱項,可著重說明課程如何幫助 TA 繼續往上挑戰。</p>
         )}
         <Script>
-          剛才說到{topWeak.length > 0 ? `「${topWeak.map(w => w.label).join('」和「')}」` : '需要加強的地方'}是需要加強的部分,
+          對了!剛才說到{topWeak.length > 0 ? `「${topWeak.map(w => w.label).join('」和「')}」` : '需要加強的地方'}是需要加強的部分,
           在我們課程裡都有系統性的設計:文法是「六級循序進階」,不會跳關,從 Be 動詞一路到完成式,
           每個概念都要達到「讀、寫、造句、中文解釋、舉一反三」五合一通過,確保孩子是真正理解而非短期記憶。
           {' '}發音與拼字的部分,我們有耶加獨創的 PPS 學習法 (Phonics 發音規則 / Pronunciation 嘴型矯正 / Spelling 拼寫),
@@ -2622,43 +2622,13 @@ function ConsultantView({ levelData, estimatedLevel, moduleStats, studentName,
       </ConsultStep>
 
       {/* STEP 6 */}
-      <ConsultStep n="6" title="收尾 — 引導下一步" hint="依家長當下的情境選擇合適的收尾話術,再用二擇一降低決策負擔">
-        <div className="bg-stone-100 rounded-lg p-1 flex mb-3 text-[11px] font-bold">
-          <button onClick={() => setClosing('trial')}
-            className={`flex-1 px-2 py-1.5 rounded-md transition ${closing === 'trial' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500'}`}>
-            情境① 邀約試讀
-          </button>
-          <button onClick={() => setClosing('enrolled')}
-            className={`flex-1 px-2 py-1.5 rounded-md transition ${closing === 'enrolled' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500'}`}>
-            情境② 已試讀完畢
-          </button>
-        </div>
-
-        {closing === 'trial' ? (
-          <>
-            <Script>
-              您看完這份報告,對孩子的程度應該有比較清楚的輪廓了。
-              我們建議可以先安排一堂免費試聽課,讓 TA 親身體驗 Level {studyLevel} 的上課方式,
-              實際感受一下我們的教學風格。<strong>您這週還是下週方便呢?</strong>
-            </Script>
-            <Tip>用在還沒安排試讀的家長。用「這週還是下週?」而不是「要不要試聽?」——二擇一大幅提高預約成功率。</Tip>
-          </>
-        ) : (
-          <>
-            <Script>
-              TA 這幾天已經在 Level {studyLevel} 上過試讀課了,我們把試讀時的實際上課狀況,
-              跟這份測驗報告放在一起看:
-              {strengths.length > 0
-                ? <>報告顯示她在「{strengths[0].label}」的基礎不錯,</>
-                : <>報告顯示她整體還在建立基礎的階段,</>}
-              {topWeak.length > 0 && <>「{topWeak.map(w => w.label).join('、')}」則是接下來要加強的重點,</>}
-              這跟老師在課堂上觀察到的狀況是吻合的。兩邊對照下來,
-              Level {studyLevel} 確實是最適合 TA 的起點。
-              那我們就直接幫她安排入班,<strong>是這週開始上課,還是下週呢?</strong>
-            </Script>
-            <Tip>用在已經上完試讀課、準備銜接入班的家長。重點是把「測驗結果」和「試讀時的實際表現」兩相印證,強化家長對入班決定的信心,一樣用「這週還是下週開始上課」二擇一收尾。</Tip>
-          </>
-        )}
+      <ConsultStep n="6" title="收尾 — 引導下一步" hint="測驗完已直接安排試讀,收尾只需確認入班日期與上課資訊,再用二擇一降低決策負擔">
+        <Script>
+          接下來的英語課是在每週〔請說出上課星期〕,也是由我 Ms. / Mr.〔請說出您的姓名〕
+          擔任 TA 的英語總導師來進行課程,那我們就直接幫 TA 安排入班,
+          <strong>是這週開始上課,還是下週呢?</strong>老師也會開始預備教材給孩子。
+        </Script>
+        <Tip>因為測驗完會直接安排試讀,不會有「尚未安排試讀」的情況,收尾不必再問要不要試聽,直接確認入班日期即可。用「這週還是下週?」而不是「要不要入班?」——二擇一大幅提高成交機率。</Tip>
       </ConsultStep>
 
       {/* 五大核心課程 */}
