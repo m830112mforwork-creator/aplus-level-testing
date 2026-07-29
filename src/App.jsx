@@ -14,14 +14,14 @@ import { ref, push, get, remove } from 'firebase/database';
 /* ════════════════════════════════════════════════════════════════
    A.P.L.U.S Level Testing v4 — Recruitment-Optimized
    • 5 模組綜合診斷 (跳過 Speaking,自主作答)
-   • 6 級別 (含 Junior 6)
+   • 6 級別 (含 AP)
    • 改良語音 (神經網路語音優先) + 試聽選擇器
    • 學校優勢區塊 (萃取自教師手冊,可編輯)
    • 下一級課程預覽 + 招生 CTA
    ═══════════════════════════════════════════════════════════════ */
 
 /* 題庫標記用的級數序列 (Pre-A 不在此列,它是「未達 A 級」的判定結果,沒有對應題目) */
-const LEVELS = ['A', 'P', 'L', 'U', 'S', 'J6'];
+const LEVELS = ['A', 'P', 'L', 'U', 'S', 'AP'];
 
 /* 未達 A 級門檻時的判定結果 */
 const PRE_A = 'Pre-A';
@@ -49,7 +49,7 @@ const LEVEL_INFO = {
   S:  { name: 'Success',             cefr: 'A2',     icon: Crown,      grade: '小五 ~ 小六',
         desc: '精通完成式系統 (現在/過去/完成進行式)。',
         objectives: ['Present Perfect Tense', 'Past Perfect Tense', 'Perfect Continuous Tense'] },
-  J6: { name: 'Junior 6',            cefr: 'A2+',    icon: Award,      grade: '小六 ~ 國中銜接',
+  AP: { name: 'Adv. Placement',      cefr: 'A2+',    icon: Award,      grade: '小六 ~ 國中銜接',
         desc: 'A2 高階精熟,具備銜接國中英語的綜合能力。',
         objectives: ['時態綜合運用', '情態助動詞 (should / must / could)', '長段閱讀流暢度', '高階字彙產出'] }
 };
@@ -79,7 +79,7 @@ const SCHOOL_TAGLINE = '對標 CEFR 國際標準的全面英語養成';  // ✏�
 const SCHOOL_ADVANTAGES = [
   { icon: Globe2,
     title: 'CEFR 國際標準對標',
-    desc: '6 級數精細對應 Pre-A1 ~ A2+,從 Adventurers 到 Junior 6,每一級都有國際語言檢定的明確定位,銜接歐洲共同語文參考標準。' },
+    desc: '6 級數精細對應 Pre-A1 ~ A2+,從 Adventurers 到 Adv. Placement,每一級都有國際語言檢定的明確定位,銜接歐洲共同語文參考標準。' },
   { icon: BarChart3,
     title: '5 大能力綜合培養',
     desc: '不只應付學校考試 — Phonics 發音、Spelling 拼字、Vocabulary 字彙、Reading 閱讀、Grammar 文法五大領域均衡發展,打造真正的英語實力。' },
@@ -88,7 +88,7 @@ const SCHOOL_ADVANTAGES = [
     desc: 'Phonics 發音規則 / Pronunciation 嘴型矯正 / Spelling 拼寫,三位一體。用顏色分類記憶各式發音,搭配老師逐一矯正嘴型 (如 a 與 e、o 與 u 的差異),孩子不再只靠聽力模仿,而是用邏輯拼出、唸準沒學過的新單字。' },
   { icon: BrainCircuit,
     title: '文法系統化六級進階',
-    desc: '依認知發展設計:A 級 Be 動詞 → P 級現在進行式 → L 級過去式 → U 級未來式與比較級 → S 級完成式 → Junior 6 國中銜接,循序漸進不混亂。' },
+    desc: '依認知發展設計:A 級 Be 動詞 → P 級現在進行式 → L 級過去式 → U 級未來式與比較級 → S 級完成式 → AP 級國中銜接,循序漸進不混亂。' },
   { icon: Sparkles,
     title: '多模態評量標準',
     desc: '每個文法概念皆要求「讀 / 寫 / 造句 / 正確中文解釋 / 舉一反三」五合一通過,確保孩子是真正理解而非短期記憶。' },
@@ -97,7 +97,7 @@ const SCHOOL_ADVANTAGES = [
     desc: '從打招呼擁抱開始建立信任,Ms./Mr. 尊師文化培養禮貌,老師主動避免讓話題中斷,讓孩子在零焦慮的環境中建立英語自信。' }
 ];
 
-/* ✏️ EDIT 各級數課程組成 (取自《各級數學習規劃》) — J6 未列於該文件,故不提供 */
+/* ✏️ EDIT 各級數課程組成 (取自《各級數學習規劃》) — AP 未列於該文件,故不提供 */
 const COURSE_MODULES = {
   A: ['A.P.O. 單字 & 句型', 'A.P.O. Grammar 文法', 'Phonics & Reading', 'Speaking 口說'],
   P: ['A.P.O. 單字 & 句型', 'A.P.O. Grammar 文法', 'Phonics & Reading', 'Speaking 口說'],
@@ -146,7 +146,7 @@ const COURSE_HIGHLIGHTS = {
     { label: '文法', text: '活用英文三態，學習現在完成式等較複雜文法，把握精準的文法認知，奠定國中三年所需的文法概念。' },
     { label: '閱讀', text: '帶領學生閱讀進階科普文章、社會時事、國際新聞，具備探討世界趨勢及國際議題能力。' }
   ],
-  J6: [
+  AP: [
     { label: '單字', text: '延伸高階字彙的精細語意判斷，強化會考單字量。' },
     { label: '文法', text: '多時態混合運用，熟悉情態助動詞 (should / must / could / may)，並掌握條件句基礎 (If 子句)。' },
     { label: '句型', text: '銜接國中會考文法重點，熟悉複合句型結構。' },
@@ -318,11 +318,11 @@ const VOCAB_QUESTIONS = [
     options: [{ id: 'a', label: 'touching', isCorrect: true }, { id: 'b', label: 'boring' }, { id: 'c', label: 'fast' }],
     concept: 'Success 等級字彙 (情緒形容詞)',
     explanation: 'cried for an hour 顯示電影感人,touching = 動人的。S 級從語境判斷字義。' },
-  { id: 'V6', skill: 'Vocabulary', level: 'J6',
+  { id: 'V6', skill: 'Vocabulary', level: 'AP',
     instruction: '選出最精準的高階字彙',
     prompt: 'After running 10 km, I felt completely ___.',
     options: [{ id: 'a', label: 'tired' }, { id: 'b', label: 'exhausted', isCorrect: true }, { id: 'c', label: 'happy' }],
-    concept: 'Junior 6 等級字彙 (精細語意)',
+    concept: 'AP 等級字彙 (精細語意)',
     explanation: 'completely 強調程度極致,exhausted (筋疲力盡) 比 tired (累) 程度更強。' }
 ];
 
@@ -362,12 +362,12 @@ const READING_QUESTIONS = [
     options: [{ id: 'a', label: 'Dolphins are smart sea animals.', isCorrect: true }, { id: 'b', label: 'Scientists are smart.' }, { id: 'c', label: 'Dolphins live on land.' }],
     concept: 'Success articles 段落主旨擷取',
     explanation: '文章圍繞 dolphins 的聰明、友善、生活與溝通,主旨是描述 dolphins。' },
-  { id: 'R6', skill: 'Reading', level: 'J6',
+  { id: 'R6', skill: 'Reading', level: 'AP',
     instruction: '讀長文,依細節作答',
     passage: 'Plastic pollution has become a serious problem in oceans around the world. Every year, millions of tons of plastic waste end up in the sea, harming fish, turtles, and other sea animals. Many countries are now trying to reduce plastic use by banning plastic bags and straws. Scientists say that if people do not change their habits soon, the ocean will be filled with more plastic than fish by 2050.',
     prompt: 'According to scientists, what will happen if people do not change their habits?',
     options: [{ id: 'a', label: 'The ocean will have more plastic than fish by 2050.', isCorrect: true }, { id: 'b', label: 'Plastic bags will be banned everywhere.' }, { id: 'c', label: 'Sea animals will stop eating plastic.' }],
-    concept: 'J6 長文閱讀 (環境議題) 細節擷取與因果推論',
+    concept: 'AP 長文閱讀 (環境議題) 細節擷取與因果推論',
     explanation: '文章末句明確指出 "if people do not change their habits soon, the ocean will be filled with more plastic than fish by 2050",屬於依原文細節作答的因果推論題。' }
 ];
 
@@ -473,23 +473,23 @@ const GRAMMAR_QUESTIONS = {
       concept: 'Perfect Continuous Tense',
       explanation: '完成進行式 = have/has + been + V-ing,強調「動作從過去持續到現在仍在進行」。' }
   ],
-  J6: [
-    { id: 'GJ1', skill: 'Grammar', level: 'J6', topic: 'Mixed Tenses',
+  AP: [
+    { id: 'GJ1', skill: 'Grammar', level: 'AP', topic: 'Mixed Tenses',
       instruction: '選出最合適的時態', prompt: 'When I ___ home yesterday, my mom ___ dinner.',
       options: [{ id: 'a', label: 'got / was cooking', isCorrect: true }, { id: 'b', label: 'get / cooks' }, { id: 'c', label: 'have got / cooked' }],
       concept: '時態綜合運用',
       explanation: '"當我到家時 (got)" 媽媽正在煮飯 (was cooking)。短暫過去 + 持續中的過去動作。' },
-    { id: 'GJ2', skill: 'Grammar', level: 'J6', topic: 'Modal Verbs',
+    { id: 'GJ2', skill: 'Grammar', level: 'AP', topic: 'Modal Verbs',
       instruction: '選出最合適的助動詞', prompt: 'You ___ wear a helmet when riding a bike.',
       options: [{ id: 'a', label: 'should', isCorrect: true }, { id: 'b', label: 'can' }, { id: 'c', label: 'will' }],
       concept: '情態助動詞',
       explanation: 'should 表「應該、建議」。can = 能夠,will = 將會,must = 必須,may = 可能。' },
-    { id: 'GJ3', skill: 'Grammar', level: 'J6', topic: 'Conditionals',
+    { id: 'GJ3', skill: 'Grammar', level: 'AP', topic: 'Conditionals',
       instruction: '選出正確的條件句', prompt: 'If it ___ tomorrow, we will stay home.',
       options: [{ id: 'a', label: 'rains', isCorrect: true }, { id: 'b', label: 'rained' }, { id: 'c', label: 'will rain' }],
       concept: '條件句 (第一類條件句)',
       explanation: '表「未來可能發生」的條件句：If 子句用現在式 (rains)，主要子句用 will + 原形動詞。' },
-    { id: 'GJ4', skill: 'Grammar', level: 'J6', topic: 'Relative Pronouns',
+    { id: 'GJ4', skill: 'Grammar', level: 'AP', topic: 'Relative Pronouns',
       instruction: '選出正確的關係代名詞', prompt: 'The girl ___ is standing over there is my sister.',
       options: [{ id: 'a', label: 'who', isCorrect: true }, { id: 'b', label: 'which' }, { id: 'c', label: 'whose' }],
       concept: '關係代名詞',
@@ -504,7 +504,7 @@ const MODULES = [
   { id: 'reading',    name: 'Reading',    label: '閱讀理解', skill: 'Reading',    questions: READING_QUESTIONS },
   { id: 'grammar',    name: 'Grammar',    label: '文法結構', skill: 'Grammar',    questions: [
     ...GRAMMAR_QUESTIONS.A, ...GRAMMAR_QUESTIONS.P, ...GRAMMAR_QUESTIONS.L,
-    ...GRAMMAR_QUESTIONS.U, ...GRAMMAR_QUESTIONS.S, ...GRAMMAR_QUESTIONS.J6
+    ...GRAMMAR_QUESTIONS.U, ...GRAMMAR_QUESTIONS.S, ...GRAMMAR_QUESTIONS.AP
   ] }
 ];
 
@@ -518,8 +518,8 @@ const TOTAL_QUESTIONS = MODULES.reduce((s, m) => s + m.questions.length, 0);
    ═══════════════════════════════════════════════════════════════ */
 const GRADE_PLANS = {
   low:  { label: '低年級', coreLevels: ['A', 'P', 'L'],            ceilingIds: ['V4', 'GU1'] },  // 30 題
-  mid:  { label: '中年級', coreLevels: ['A','P','L','U','S'],      ceilingIds: [] },             // 39 題 (不含 J6)
-  high: { label: '高年級', coreLevels: ['A','P','L','U','S','J6'], ceilingIds: [] }              // 45 題 (含 J6)
+  mid:  { label: '中年級', coreLevels: ['A','P','L','U','S'],      ceilingIds: [] },             // 39 題 (不含 AP)
+  high: { label: '高年級', coreLevels: ['A','P','L','U','S','AP'], ceilingIds: [] }              // 45 題 (含 AP)
 };
 
 const GRADE_OPTIONS = {
@@ -1224,7 +1224,7 @@ const [gradeGroup, setGradeGroup] = useState('');
               {[
                 { key: 'low',  label: '低年級', sub: '幼稚園 ～ 小二',   emoji: '🌱', color: 'from-green-400 to-emerald-500',  levels: ['A', 'P'] },
                 { key: 'mid',  label: '中年級', sub: '小三 ～ 小四',     emoji: '🌿', color: 'from-blue-400 to-sky-500',       levels: ['L', 'U'] },
-                { key: 'high', label: '高年級', sub: '小五 ～ 小六以上', emoji: '🌳', color: 'from-violet-400 to-purple-500',  levels: ['S', 'J6'] },
+                { key: 'high', label: '高年級', sub: '小五 ～ 小六以上', emoji: '🌳', color: 'from-violet-400 to-purple-500',  levels: ['S', 'AP'] },
               ].map(({ key, label, sub, emoji, color, levels }) => (
                 <button
                   key={key}
@@ -2112,7 +2112,7 @@ function StudentView({ modules = MODULES, levelData, estimatedLevel, moduleStats
       </div>
 
       {/* ⭐ 你的下一階學習路徑 */}
-      {estimatedLevel !== 'J6' && (
+      {estimatedLevel !== 'AP' && (
         <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 p-5 sm:p-6 rounded-2xl relative overflow-hidden">
           <Rocket className="absolute -top-2 -right-2 w-24 h-24 text-amber-200 opacity-50 rotate-12" />
           <div className="relative z-10">
@@ -2352,6 +2352,9 @@ function ConsultantView({ levelData, estimatedLevel, moduleStats, studentName,
   const targetLevel = isTopLevel ? studyLevel : LEVELS[studyIdx + 1];
   const targetInfo = LEVEL_INFO[targetLevel];
 
+  /* STEP 6 收尾情境:尚未安排試讀 (邀約) / 已上完試讀課 (準備入班) */
+  const [closing, setClosing] = useState('trial');
+
   /* 五大能力:依表現由高到低排序,確保「先說強項、後說弱項」 */
   const skills = useMemo(() => Object.keys(SKILL_TAGS).map(s => {
     const st = moduleStats[s.toLowerCase()] || { correct: 0, total: 0 };
@@ -2535,13 +2538,43 @@ function ConsultantView({ levelData, estimatedLevel, moduleStats, studentName,
       </ConsultStep>
 
       {/* STEP 6 */}
-      <ConsultStep n="6" title="收尾 — 引導預約試聽" hint="用二擇一降低決策負擔">
-        <Script>
-          您看完這份報告,對孩子的程度應該有比較清楚的輪廓了。
-          我們建議可以先安排一堂免費試聽課,讓 TA 親身體驗 Level {studyLevel} 的上課方式,
-          實際感受一下我們的教學風格。<strong>您這週還是下週方便呢?</strong>
-        </Script>
-        <Tip>用「這週還是下週?」而不是「要不要試聽?」——二擇一大幅提高預約成功率。</Tip>
+      <ConsultStep n="6" title="收尾 — 引導下一步" hint="依家長當下的情境選擇合適的收尾話術,再用二擇一降低決策負擔">
+        <div className="bg-stone-100 rounded-lg p-1 flex mb-3 text-[11px] font-bold">
+          <button onClick={() => setClosing('trial')}
+            className={`flex-1 px-2 py-1.5 rounded-md transition ${closing === 'trial' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500'}`}>
+            情境① 邀約試讀
+          </button>
+          <button onClick={() => setClosing('enrolled')}
+            className={`flex-1 px-2 py-1.5 rounded-md transition ${closing === 'enrolled' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500'}`}>
+            情境② 已試讀完畢
+          </button>
+        </div>
+
+        {closing === 'trial' ? (
+          <>
+            <Script>
+              您看完這份報告,對孩子的程度應該有比較清楚的輪廓了。
+              我們建議可以先安排一堂免費試聽課,讓 TA 親身體驗 Level {studyLevel} 的上課方式,
+              實際感受一下我們的教學風格。<strong>您這週還是下週方便呢?</strong>
+            </Script>
+            <Tip>用在還沒安排試讀的家長。用「這週還是下週?」而不是「要不要試聽?」——二擇一大幅提高預約成功率。</Tip>
+          </>
+        ) : (
+          <>
+            <Script>
+              TA 這幾天已經在 Level {studyLevel} 上過試讀課了,我們把試讀時的實際上課狀況,
+              跟這份測驗報告放在一起看:
+              {strengths.length > 0
+                ? <>報告顯示她在「{strengths[0].label}」的基礎不錯,</>
+                : <>報告顯示她整體還在建立基礎的階段,</>}
+              {topWeak.length > 0 && <>「{topWeak.map(w => w.label).join('、')}」則是接下來要加強的重點,</>}
+              這跟老師在課堂上觀察到的狀況是吻合的。兩邊對照下來,
+              Level {studyLevel} 確實是最適合 TA 的起點。
+              那我們就直接幫她安排入班,<strong>是這週開始上課,還是下週呢?</strong>
+            </Script>
+            <Tip>用在已經上完試讀課、準備銜接入班的家長。重點是把「測驗結果」和「試讀時的實際表現」兩相印證,強化家長對入班決定的信心,一樣用「這週還是下週開始上課」二擇一收尾。</Tip>
+          </>
+        )}
       </ConsultStep>
 
       {/* 五大核心課程 */}
