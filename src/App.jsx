@@ -651,6 +651,52 @@ function exportRecordsCSV(list) {
 }
 
 /* ════════════════════════════════════════════════════════════════
+   ⭐ 教育者／顧問版密碼保護 (避免學生自行切換看到內部版本)
+   ═══════════════════════════════════════════════════════════════ */
+const VIEW_PASSWORD = '2222';
+
+function ViewPasswordModal({ onCancel, onUnlock }) {
+  const [pwd, setPwd] = useState('');
+  const [error, setError] = useState(false);
+
+  const submit = () => {
+    if (pwd === VIEW_PASSWORD) onUnlock();
+    else setError(true);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4" onClick={onCancel}>
+      <div className="bg-white rounded-2xl p-6 max-w-xs w-full flex flex-col items-center gap-3 text-center shadow-xl"
+        onClick={e => e.stopPropagation()}>
+        <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
+          <Lock className="w-5 h-5 text-indigo-600" />
+        </div>
+        <div>
+          <h3 className="font-bold text-slate-800 text-sm">需要密碼才能查看</h3>
+          <p className="text-slate-500 text-xs mt-1">教育者／顧問版僅供內部使用，請輸入密碼</p>
+        </div>
+        <input
+          type="password" autoFocus value={pwd}
+          onChange={e => { setPwd(e.target.value); setError(false); }}
+          onKeyDown={e => e.key === 'Enter' && submit()}
+          placeholder="密碼"
+          className={`w-full px-4 py-2.5 bg-stone-50 border rounded-xl text-sm font-medium text-center focus:outline-none ${error ? 'border-red-400' : 'border-stone-200 focus:border-emerald-400'}`}
+        />
+        {error && <p className="text-red-500 text-xs font-bold">密碼錯誤，請再試一次</p>}
+        <div className="flex gap-2 w-full mt-1">
+          <button onClick={onCancel} className="flex-1 px-4 py-2 bg-stone-100 hover:bg-stone-200 text-slate-700 rounded-lg font-bold text-sm">
+            取消
+          </button>
+          <button onClick={submit} className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm">
+            確認
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
    ⭐ 歷史紀錄總覽 (老師端瀏覽所有已保存的測驗紀錄)
    ═══════════════════════════════════════════════════════════════ */
 const RECORDS_PASSWORD = '1111';
@@ -1878,6 +1924,19 @@ function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElaps
   const [exportingPdf, setExportingPdf] = useState(false);
   const contentRef = useRef(null);
 
+  /* 教育者／顧問版需要密碼才能切換過去,解鎖後這次瀏覽期間都不用再輸入 */
+  const [viewUnlocked, setViewUnlocked] = useState(false);
+  const [pendingView, setPendingView] = useState(null);
+  const requestView = (target) => {
+    if (target === 'student' || viewUnlocked) { setView(target); return; }
+    setPendingView(target);
+  };
+
+  /* 顯示於報告右上角,讓匯出的 PDF 一眼就能認出是哪位學生 */
+  const reportTimestamp = useMemo(() => new Date().toLocaleString('zh-TW', {
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+  }), []);
+
   /* ⭐ 匯出 PDF：直接把結果內容畫成圖片再包成 PDF 下載，不依賴瀏覽器原生列印
      (window.print() 在部分機構管理的 iPad 上會被限制，完全沒有反應) */
   const exportPdf = async () => {
@@ -1969,17 +2028,21 @@ function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElaps
         </div>
         <div className="flex items-center gap-2 print:hidden">
           <div className="bg-stone-100 rounded-lg p-1 flex">
-            <button onClick={() => setView('student')}
+            <button onClick={() => requestView('student')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition ${view === 'student' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500'}`}>
               <User className="w-3 h-3" /><span className="hidden sm:inline">學生</span>
             </button>
-            <button onClick={() => setView('educator')}
+            <button onClick={() => requestView('educator')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition ${view === 'educator' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500'}`}>
-              <GraduationCap className="w-3 h-3" /><span className="hidden sm:inline">教育者</span>
+              <GraduationCap className="w-3 h-3" />
+              {!viewUnlocked && <Lock className="w-2.5 h-2.5" />}
+              <span className="hidden sm:inline">教育者</span>
             </button>
-            <button onClick={() => setView('consultant')}
+            <button onClick={() => requestView('consultant')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 transition ${view === 'consultant' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500'}`}>
-              <Users className="w-3 h-3" /><span className="hidden sm:inline">顧問</span>
+              <Users className="w-3 h-3" />
+              {!viewUnlocked && <Lock className="w-2.5 h-2.5" />}
+              <span className="hidden sm:inline">顧問</span>
             </button>
           </div>
           <button onClick={() => playClip('complete')} title="再聽一次語音" aria-label="再聽一次語音"
@@ -2031,6 +2094,20 @@ function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElaps
 
         {/* 右側 */}
         <div className="lg:col-span-8">
+          {/* 學生基本資訊 — 顯示在報告區塊內,確保匯出 PDF 時能一眼看出是哪位學生 */}
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 bg-white px-4 py-2.5 rounded-xl border border-stone-100 mb-5 text-xs">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-slate-500">
+              <User className="w-3.5 h-3.5 text-slate-400" />
+              <span className="font-bold text-slate-700">{studentName || '未填寫姓名'}</span>
+              {studentGrade && <span>· {studentGrade}</span>}
+              {campus && <span>· {campus}</span>}
+              <span className="ml-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">
+                {estimatedLevel === PRE_A ? 'Pre-A 預備階段' : `Level ${estimatedLevel}`}
+              </span>
+            </div>
+            <span className="text-slate-400 whitespace-nowrap">{reportTimestamp}</span>
+          </div>
+
           {view === 'student' && (
             <StudentView
               modules={modules}
@@ -2057,6 +2134,13 @@ function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElaps
           )}
         </div>
       </div>
+
+      {pendingView && (
+        <ViewPasswordModal
+          onCancel={() => setPendingView(null)}
+          onUnlock={() => { setViewUnlocked(true); setView(pendingView); setPendingView(null); }}
+        />
+      )}
     </div>
   );
 }
