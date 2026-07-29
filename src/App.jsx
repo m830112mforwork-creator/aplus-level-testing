@@ -528,6 +528,28 @@ const GRADE_OPTIONS = {
   high: ['小五', '小六', '國一', '國二以上'],
 };
 
+/* ⭐ 常規範圍 — 依年級組別,大部分學生測驗結果的合理落點。
+   超出此範圍(過高或過低)在統計上算特例,建議顧問/教育者複核後再定案,而不是照單全收。
+   ✏️ EDIT — 這是經驗法則,可依實際招生資料調整上下界 */
+const LEVEL_ORDER = [PRE_A, ...LEVELS]; // ['Pre-A','A','P','L','U','S','AP']
+const NORMAL_RANGE = {
+  low:  { lower: PRE_A, upper: 'P',  typicalNote: '大部分低年級學生落在 A／P 級，跳級到 L 屬於特例' },
+  mid:  { lower: 'A',   upper: 'U',  typicalNote: '大部分中年級學生落在 A～U 級，連 A 都未通過或跳級到 S 屬於特例' },
+  high: { lower: 'P',   upper: 'AP', typicalNote: '大部分高年級學生落在 P～AP 級，停留在 A 級（含以下）屬於特例' }
+};
+
+/* 判斷這次的測驗結果,對這個年級組別來說是否為統計上的特例(過高或過低) */
+function checkLevelOutlier(gradeGroup, estimatedLevel) {
+  const range = NORMAL_RANGE[gradeGroup];
+  if (!range) return null;
+  const idx = LEVEL_ORDER.indexOf(estimatedLevel);
+  const lowerIdx = LEVEL_ORDER.indexOf(range.lower);
+  const upperIdx = LEVEL_ORDER.indexOf(range.upper);
+  if (idx < lowerIdx) return { direction: 'low', ...range };
+  if (idx > upperIdx) return { direction: 'high', ...range };
+  return null;
+}
+
 const CAMPUS_OPTIONS = ['總校', '龍華校', '左新校'];
 
 function buildModules(gradeGroup) {
@@ -1330,7 +1352,7 @@ const [gradeGroup, setGradeGroup] = useState('');
           <Dashboard
             modules={activeModules} savedOk={savedOk} cloudSyncOk={cloudSyncOk}
             answers={answers} timeElapsed={timeElapsed} formatTime={formatTime}
-            studentName={studentName} studentGrade={studentGrade} campus={campus}
+            studentName={studentName} studentGrade={studentGrade} campus={campus} gradeGroup={gradeGroup}
             onRestart={() => { setSavedOk(null); setCloudSyncOk(null); setScreen('campus'); }}
             playClip={playClip} pauseClip={pauseClip} clipPlaying={clipPlaying}
           />
@@ -1919,7 +1941,7 @@ function QuestionContent({ question, moduleId, isSpeaking, onReplayAudio, audioB
 /* ════════════════════════════════════════════════════════════════
    Dashboard — 含學校優勢 + 招生 CTA
    ═══════════════════════════════════════════════════════════════ */
-function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElapsed, formatTime, studentName, studentGrade, campus, onRestart, playClip, pauseClip, clipPlaying }) {
+function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElapsed, formatTime, studentName, studentGrade, campus, gradeGroup, onRestart, playClip, pauseClip, clipPlaying }) {
   const [view, setView] = useState('student');
   const [exportingPdf, setExportingPdf] = useState(false);
   const contentRef = useRef(null);
@@ -1989,6 +2011,7 @@ function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElaps
   // 計算每級表現 (用於估計級數)
   const levelStats = useMemo(() => computeLevelStats(answers), [answers]);
   const estimatedLevel = useMemo(() => estimateLevel(levelStats), [levelStats]);
+  const levelOutlier = useMemo(() => checkLevelOutlier(gradeGroup, estimatedLevel), [gradeGroup, estimatedLevel]);
 
   const nextLevelIdx = Math.min(LEVELS.indexOf(estimatedLevel) + 1, LEVELS.length - 1);
   const nextLevel = LEVELS[nextLevelIdx];
@@ -2107,6 +2130,22 @@ function Dashboard({ modules = MODULES, savedOk, cloudSyncOk, answers, timeElaps
             </div>
             <span className="text-slate-400 whitespace-nowrap">{reportTimestamp}</span>
           </div>
+
+          {/* 特例提醒 — 僅教育者/顧問版可見,避免讓家長在學生版直接看到「特例」字樣 */}
+          {view !== 'student' && levelOutlier && (
+            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-amber-800">這個結果對這個年齡層來說較不常見</p>
+                <p className="text-[11.5px] text-amber-700 mt-1 leading-relaxed">
+                  {levelOutlier.typicalNote}。建議複核：作答用時是否
+                  {levelOutlier.direction === 'high' ? '過短(可能隨機作答)' : '過長或中途分心'}、
+                  錯題是否{levelOutlier.direction === 'high' ? '集中在特定概念而非隨機亂猜' : '為粗心所致而非真的不會'}，
+                  必要時可安排重測，或與家長了解孩子實際的英語學習背景，確認無誤後再定案分班建議。
+                </p>
+              </div>
+            </div>
+          )}
 
           {view === 'student' && (
             <StudentView
