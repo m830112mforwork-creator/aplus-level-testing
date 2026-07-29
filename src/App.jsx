@@ -165,7 +165,7 @@ const CORE_COURSES = [
   'Speaking Skills — 口說與情境表達',
   'Grammar Usage — 文法概念與運用',
   'Phonics & Reading — 發音規則與閱讀理解',
-  'English Library Time — 自主學習任務'
+  'English Library Time（英語科技探索空間） — 自主學習任務'
 ];
 
 /* 各能力的「代表意義」與「對應課程」— 依表現好壞給不同解讀 */
@@ -2569,8 +2569,8 @@ function ConsultantView({ levelData, estimatedLevel, moduleStats, studentName,
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5">下一個目標</p>
             {isTopLevel ? (
               <>
-                <p className="font-black text-slate-700">已在最高級數</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">往 Level-up 進階考與國中銜接邁進</p>
+                <p className="font-black text-slate-700">已達國小部最高級數</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">穩定後可挑戰耶加中學部系統,銜接國中會考</p>
               </>
             ) : (
               <>
@@ -2584,7 +2584,7 @@ function ConsultantView({ levelData, estimatedLevel, moduleStats, studentName,
           根據測驗的結果,還有今天在班上的學習評估,我們建議 TA 從「<strong>Level {studyLevel} — {studyInfo.name}</strong>」開始學習。
           這個班正好在建立「{studyInfo.desc.replace(/[。．]$/, '')}」這些基礎,是 TA 目前程度最好的銜接點。
           {isTopLevel ? (
-            <>{' '}接下來就是透過每兩個月的 Level-up 進階考持續精進,穩健銜接國中英語。</>
+            <>{' '}接下來就是透過每兩個月的 Level-up 進階考持續精進,穩定後可挑戰耶加中學部系統,持續銜接國中會考。</>
           ) : (
             <>{' '}Level {studyLevel} 穩定之後,下一個目標就是挑戰「<strong>Level {targetLevel} — {targetInfo.name}</strong>」,
               屆時 TA 會學到{(COURSE_HIGHLIGHTS[targetLevel] || []).slice(0, 3).map(h => h.label).join('、')}等重點,
